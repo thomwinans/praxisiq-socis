@@ -74,7 +74,13 @@
       "Bash(bash scripts/snapp-build.sh .claude/tasks/sprint-1.json --dry-run 2>&1)",
       "Bash(git commit:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(ls -la scripts/*.sh)",
+      "Bash(ls test/Snapp.TestHelpers/*.cs)",
+      "Bash(ls test/Snapp.Service.Auth.Tests/*.cs)",
+      "Bash(ls .github/workflows/*.yml)",
+      "Bash(dotnet build:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
