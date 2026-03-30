@@ -69,6 +69,41 @@ services:
       timeout: 3s
       retries: 10
 
+  # ─── Application Services ──────────────────────────────────────
+  snapp-auth:
+    build:
+      context: ../../
+      dockerfile: src/Snapp.Service.Auth/Dockerfile
+    container_name: snapp-auth
+    ports:
+      - "8081:8080"
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+      papercut:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DynamoDB__ServiceURL: http://dynamodb-local:8000
+      Encryption__KeyFilePath: /keys/dev-master.key
+      Auth__SigningKeyPath: /keys/jwt-signing.pem
+      Auth__Issuer: snapp-auth
+      Auth__Audience: snapp-api
+      Auth__MagicLinkBaseUrl: http://localhost:5000
+      Email__SmtpHost: papercut
+      Email__SmtpPort: "2525"
+      Email__FromAddress: noreply@snapp.local
+    volumes:
+      - ./keys:/keys:ro
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # ─── Dev Tools ────────────────────────────────────────────────
   swagger-ui:
     image: swaggerapi/swagger-ui:latest
