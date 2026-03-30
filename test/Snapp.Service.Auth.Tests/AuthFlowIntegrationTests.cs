@@ -279,12 +279,17 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
             return;
         }
 
+        var accessToken = result.Value.Token.AccessToken;
         var refreshToken = result.Value.Token.RefreshToken;
 
-        // Act: logout
-        var logoutResponse = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/logout",
-            new RefreshRequest { RefreshToken = refreshToken });
+        // Act: logout (requires JWT auth via Kong)
+        var logoutRequest = new HttpRequestMessage(HttpMethod.Post, $"{AuthBaseUrl}/logout")
+        {
+            Content = JsonContent.Create(new RefreshRequest { RefreshToken = refreshToken }),
+        };
+        logoutRequest.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        var logoutResponse = await _http.SendAsync(logoutRequest);
 
         // Assert
         logoutResponse.StatusCode.Should().Be(HttpStatusCode.OK,
