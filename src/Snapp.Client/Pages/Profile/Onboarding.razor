@@ -1,0 +1,269 @@
+@page "/onboarding"
+@attribute [Authorize]
+@inject IUserService UserService
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudCard Elevation="2" Class="pa-6">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h4" Align="Align.Center">Welcome to SNAPP</MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mt-1">
+                    Let's set up your profile
+                </MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudProgressLinear Color="Color.Primary" Value="@StepProgress" Class="mb-6" Rounded="true" />
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="() => _error = null">
+                    @_error
+                </MudAlert>
+            }
+
+            @if (_step == 1)
+            {
+                <MudText Typo="Typo.h6" Class="mb-4">About You</MudText>
+                <MudForm @ref="_form1" @bind-IsValid="_step1Valid">
+                    <MudTextField T="string"
+                                  @bind-Value="_displayName"
+                                  Label="Display Name"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="Display name is required"
+                                  MaxLength="100"
+                                  Class="mb-3" />
+                    <MudSelect T="string"
+                               @bind-Value="_specialty"
+                               Label="Specialty"
+                               Variant="Variant.Outlined"
+                               Class="mb-3">
+                        @foreach (var s in Specialties)
+                        {
+                            <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudAutocomplete T="string"
+                                     @bind-Value="_geography"
+                                     Label="State / Region"
+                                     Variant="Variant.Outlined"
+                                     SearchFunc="SearchGeography"
+                                     MaxLength="200"
+                                     Class="mb-3" />
+                </MudForm>
+            }
+            else if (_step == 2)
+            {
+                <MudText Typo="Typo.h6" Class="mb-4">Your Practice</MudText>
+                <MudTextField T="string"
+                              @bind-Value="_practiceName"
+                              Label="Practice Name"
+                              Variant="Variant.Outlined"
+                              Class="mb-3" />
+                <MudSelect T="string"
+                           @bind-Value="_practiceSize"
+                           Label="Practice Size"
+                           Variant="Variant.Outlined"
+                           Class="mb-3">
+                    <MudSelectItem T="string" Value="@("Solo")">Solo</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("2-5")">2–5</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("6-10")">6–10</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("10+")">10+</MudSelectItem>
+                </MudSelect>
+                <MudNumericField T="int?"
+                                 @bind-Value="_yearsInPractice"
+                                 Label="Years in Practice"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 Max="70"
+                                 Class="mb-3" />
+            }
+            else if (_step == 3)
+            {
+                <MudText Typo="Typo.h6" Class="mb-4">Connect</MudText>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Link"
+                           Disabled="true"
+                           Class="mb-4">
+                    Link your LinkedIn (coming soon)
+                </MudButton>
+                <MudTextField T="string"
+                              @bind-Value="_phone"
+                              Label="Phone (optional)"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Telephone"
+                              MaxLength="20"
+                              Class="mb-3" />
+            }
+        </MudCardContent>
+        <MudCardActions Class="d-flex justify-space-between pa-4">
+            @if (_step > 1)
+            {
+                <MudButton Variant="Variant.Text"
+                           OnClick="PreviousStep">
+                    Back
+                </MudButton>
+            }
+            else
+            {
+                <MudSpacer />
+            }
+
+            <div class="d-flex gap-2">
+                @if (_step >= 2 && _step < 3)
+                {
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               OnClick="NextStep">
+                        Skip
+                    </MudButton>
+                }
+                @if (_step == 3)
+                {
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               OnClick="FinishAsync"
+                               Disabled="@_saving">
+                        Skip
+                    </MudButton>
+                }
+                @if (_step < 3)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="@(_step == 1 && !_step1Valid)"
+                               OnClick="NextStep">
+                        Next
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="@_saving"
+                               OnClick="FinishAsync">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Finish
+                    </MudButton>
+                }
+            </div>
+        </MudCardActions>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private MudForm? _form1;
+    private int _step = 1;
+    private bool _step1Valid;
+    private bool _saving;
+    private string? _error;
+
+    // Step 1
+    private string _displayName = string.Empty;
+    private string? _specialty;
+    private string? _geography;
+
+    // Step 2
+    private string? _practiceName;
+    private string? _practiceSize;
+    private int? _yearsInPractice;
+
+    // Step 3
+    private string? _phone;
+
+    // Pre-filled from PII
+    private string _email = string.Empty;
+
+    private double StepProgress => _step / 3.0 * 100;
+
+    private void NextStep() => _step = Math.Min(_step + 1, 3);
+    private void PreviousStep() => _step = Math.Max(_step - 1, 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var pii = await UserService.GetMyPiiAsync();
+            _email = pii.Email;
+        }
+        catch
+        {
+            // PII fetch failed — user will need to enter email manually
+        }
+    }
+
+    private async Task FinishAsync()
+    {
+        _saving = true;
+        _error = null;
+
+        try
+        {
+            var request = new Snapp.Shared.DTOs.User.OnboardingRequest
+            {
+                DisplayName = _displayName,
+                Specialty = _specialty,
+                Geography = _geography,
+                Email = _email,
+                Phone = _phone
+            };
+
+            await UserService.OnboardAsync(request);
+            Navigation.NavigateTo("/");
+        }
+        catch
+        {
+            _error = "Failed to save your profile. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private Task<IEnumerable<string>> SearchGeography(string? value, CancellationToken ct)
+    {
+        var results = string.IsNullOrEmpty(value)
+            ? UsStates
+            : UsStates.Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(results);
+    }
+
+    internal static readonly string[] Specialties = new[]
+    {
+        "General Dentistry",
+        "Orthodontics",
+        "Periodontics",
+        "Endodontics",
+        "Oral Surgery",
+        "Prosthodontics",
+        "Pediatric Dentistry",
+        "Oral Pathology",
+        "Oral Radiology",
+        "Public Health Dentistry",
+        "Dental Anesthesiology",
+        "Orofacial Pain",
+        "Other"
+    };
+
+    private static readonly IEnumerable<string> UsStates = new[]
+    {
+        "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+        "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+        "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana",
+        "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+        "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
+        "New Hampshire", "New Jersey", "New Mexico", "New York",
+        "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon",
+        "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
+        "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
+        "West Virginia", "Wisconsin", "Wyoming"
+    };
+}

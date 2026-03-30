@@ -1,0 +1,158 @@
+@page "/profile/edit"
+@attribute [Authorize]
+@inject IUserService UserService
+@inject NavigationManager Navigation
+
+@if (_loading)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8 d-flex justify-center">
+        <MudProgressCircular Indeterminate="true" />
+    </MudContainer>
+}
+else if (_loadError is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_loadError</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadProfileAsync">Retry</MudButton>
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudCard Elevation="2" Class="pa-6">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5">Edit Profile</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (_saveError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-4">@_saveError</MudAlert>
+                }
+
+                <MudForm @ref="_form" @bind-IsValid="_isValid">
+                    <MudTextField T="string"
+                                  @bind-Value="_displayName"
+                                  Label="Display Name"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="Display name is required"
+                                  MaxLength="100"
+                                  Class="mb-3" />
+                    <MudSelect T="string"
+                               @bind-Value="_specialty"
+                               Label="Specialty"
+                               Variant="Variant.Outlined"
+                               Clearable="true"
+                               Class="mb-3">
+                        @foreach (var s in Onboarding.Specialties)
+                        {
+                            <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudTextField T="string"
+                                  @bind-Value="_geography"
+                                  Label="Geography"
+                                  Variant="Variant.Outlined"
+                                  MaxLength="200"
+                                  Class="mb-3" />
+                    <MudTextField T="string"
+                                  @bind-Value="_photoUrl"
+                                  Label="Photo URL"
+                                  Variant="Variant.Outlined"
+                                  MaxLength="500"
+                                  Class="mb-3" />
+                </MudForm>
+            </MudCardContent>
+            <MudCardActions Class="d-flex justify-end gap-2 pa-4">
+                <MudButton Variant="Variant.Text"
+                           OnClick="Cancel">
+                    Cancel
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@(!_isValid || _saving)"
+                           OnClick="SaveAsync">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Save
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudContainer>
+}
+
+@code {
+    private MudForm? _form;
+    private bool _isValid;
+    private bool _loading = true;
+    private bool _saving;
+    private string? _loadError;
+    private string? _saveError;
+
+    private string _displayName = string.Empty;
+    private string? _specialty;
+    private string? _geography;
+    private string? _photoUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _loading = true;
+        _loadError = null;
+
+        try
+        {
+            var profile = await UserService.GetMyProfileAsync();
+            _displayName = profile.DisplayName;
+            _specialty = profile.Specialty;
+            _geography = profile.Geography;
+            _photoUrl = profile.PhotoUrl;
+        }
+        catch
+        {
+            _loadError = "Failed to load your profile.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _saveError = null;
+
+        try
+        {
+            var request = new Snapp.Shared.DTOs.User.UpdateProfileRequest
+            {
+                DisplayName = _displayName,
+                Specialty = _specialty,
+                Geography = _geography,
+                PhotoUrl = _photoUrl
+            };
+
+            await UserService.UpdateProfileAsync(request);
+            Navigation.NavigateTo("/profile");
+        }
+        catch
+        {
+            _saveError = "Failed to save your profile. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => Navigation.NavigateTo("/profile");
+}

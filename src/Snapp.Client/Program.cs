@@ -33,6 +33,7 @@ builder.Services.AddScoped(sp =>
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<INetworkService, NetworkService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // MudBlazor
 builder.Services.AddMudServices();

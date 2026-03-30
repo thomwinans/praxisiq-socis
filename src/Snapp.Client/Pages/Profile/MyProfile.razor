@@ -1,4 +1,120 @@
 @page "/profile"
 @attribute [Authorize]
+@inject IUserService UserService
+@inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4">My Profile</MudText>
+@if (_loading)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8 d-flex justify-center">
+        <MudProgressCircular Indeterminate="true" />
+    </MudContainer>
+}
+else if (_error is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadProfileAsync">Retry</MudButton>
+    </MudContainer>
+}
+else if (_profile is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        @if (_profile.ProfileCompleteness < 100)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                Your profile is @($"{_profile.ProfileCompleteness:0}")% complete. @CompletenessHint
+            </MudAlert>
+        }
+
+        <MudCard Elevation="2" Class="pa-6">
+            <MudCardContent>
+                <div class="d-flex align-center gap-4 mb-4">
+                    <MudAvatar Size="Size.Large" Color="Color.Primary" Style="width:80px;height:80px;">
+                        @if (!string.IsNullOrEmpty(_profile.PhotoUrl))
+                        {
+                            <MudImage Src="@_profile.PhotoUrl" Alt="@_profile.DisplayName" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" />
+                        }
+                    </MudAvatar>
+                    <div>
+                        <MudText Typo="Typo.h5">@_profile.DisplayName</MudText>
+                        @if (!string.IsNullOrEmpty(_profile.Specialty))
+                        {
+                            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                                @_profile.Specialty
+                            </MudChip>
+                        }
+                        @if (!string.IsNullOrEmpty(_profile.Geography))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@_profile.Geography</MudText>
+                        }
+                    </div>
+                </div>
+
+                <Snapp.Client.Components.ProfileCompleteness Value="@_profile.ProfileCompleteness" />
+
+                @if (!string.IsNullOrEmpty(_profile.LinkedInProfileUrl))
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small" Class="mr-1" />
+                        LinkedIn connected
+                    </MudText>
+                }
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Href="/profile/edit"
+                           StartIcon="@Icons.Material.Filled.Edit">
+                    Edit Profile
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudContainer>
+}
+
+@code {
+    private Snapp.Shared.DTOs.User.ProfileResponse? _profile;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _profile = await UserService.GetMyProfileAsync();
+        }
+        catch
+        {
+            _error = "Failed to load your profile. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string CompletenessHint
+    {
+        get
+        {
+            var c = _profile?.ProfileCompleteness ?? 0;
+            if (c < 20) return "Add your name and specialty to get started.";
+            if (c < 40) return "Add your geography and practice info.";
+            if (c < 70) return "Link your LinkedIn or add a photo to stand out.";
+            if (c < 100) return "Almost there! Complete all sections.";
+            return string.Empty;
+        }
+    }
+}

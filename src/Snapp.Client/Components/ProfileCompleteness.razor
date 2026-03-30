@@ -1,0 +1,33 @@
+@* Displays a profile completeness progress bar with color coding and suggestion tooltip *@
+
+<MudTooltip Text="@GetSuggestionText()">
+    <div>
+        <MudProgressLinear Color="@GetBarColor()"
+                           Value="@((double)Value)"
+                           Class="my-1"
+                           Rounded="true"
+                           Size="Size.Medium" />
+        <MudText Typo="Typo.caption" Align="Align.Center">@($"{Value:0}")% complete</MudText>
+    </div>
+</MudTooltip>
+
+@code {
+    [Parameter]
+    public decimal Value { get; set; }
+
+    private Color GetBarColor()
+    {
+        if (Value < 40) return Color.Error;
+        if (Value < 70) return Color.Warning;
+        return Color.Success;
+    }
+
+    private string GetSuggestionText()
+    {
+        if (Value < 20) return "Add your name and specialty to get started";
+        if (Value < 40) return "Add your geography and practice info to improve your profile";
+        if (Value < 70) return "Link your LinkedIn or add a photo to stand out";
+        if (Value < 100) return "Almost there! Complete all sections for maximum visibility";
+        return "Your profile is complete!";
+    }
+}

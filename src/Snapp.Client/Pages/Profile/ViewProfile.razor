@@ -1,8 +1,83 @@
 @page "/profile/{UserId}"
+@inject IUserService UserService
 
-<MudText Typo="Typo.h4">User Profile</MudText>
+@if (_loading)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8 d-flex justify-center">
+        <MudProgressCircular Indeterminate="true" />
+    </MudContainer>
+}
+else if (_error is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadProfileAsync">Retry</MudButton>
+    </MudContainer>
+}
+else if (_profile is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudCard Elevation="2" Class="pa-6">
+            <MudCardContent>
+                <div class="d-flex align-center gap-4 mb-4">
+                    <MudAvatar Size="Size.Large" Color="Color.Primary" Style="width:80px;height:80px;">
+                        @if (!string.IsNullOrEmpty(_profile.PhotoUrl))
+                        {
+                            <MudImage Src="@_profile.PhotoUrl" Alt="@_profile.DisplayName" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" />
+                        }
+                    </MudAvatar>
+                    <div>
+                        <MudText Typo="Typo.h5">@_profile.DisplayName</MudText>
+                        @if (!string.IsNullOrEmpty(_profile.Specialty))
+                        {
+                            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                                @_profile.Specialty
+                            </MudChip>
+                        }
+                        @if (!string.IsNullOrEmpty(_profile.Geography))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@_profile.Geography</MudText>
+                        }
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudContainer>
+}
 
 @code {
     [Parameter]
     public string UserId { get; set; } = string.Empty;
+
+    private Snapp.Shared.DTOs.User.ProfileResponse? _profile;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _profile = await UserService.GetProfileAsync(UserId);
+        }
+        catch
+        {
+            _error = "Failed to load this profile.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
 }
