@@ -10,6 +10,12 @@ public class ProfileResponse
 
     public string? Geography { get; set; }
 
+    public string? LinkedInProfileUrl { get; set; }
+
+    public string? PhotoUrl { get; set; }
+
+    public bool HasPracticeData { get; set; }
+
     public decimal ProfileCompleteness { get; set; }
 
     public DateTime CreatedAt { get; set; }

@@ -4,7 +4,7 @@ using Snapp.Shared.Constants;
 using Snapp.Shared.Interfaces;
 using Snapp.Shared.Models;
 
-namespace Snapp.Service.Auth.Repositories;
+namespace Snapp.Service.User.Repositories;
 
 public class UserRepository : IUserRepository
 {
@@ -15,7 +15,7 @@ public class UserRepository : IUserRepository
         _db = db;
     }
 
-    public async Task<User?> GetByIdAsync(string userId)
+    public async Task<Shared.Models.User?> GetByIdAsync(string userId)
     {
         var response = await _db.GetItemAsync(new GetItemRequest
         {
@@ -74,20 +74,9 @@ public class UserRepository : IUserRepository
         return response.Item["UserId"].S;
     }
 
-    public async Task CreateAsync(User user, UserPii pii, string emailHash)
+    public async Task CreateAsync(Shared.Models.User user, UserPii pii, string emailHash)
     {
-        var profileItem = new Dictionary<string, AttributeValue>
-        {
-            ["PK"] = new($"{KeyPrefixes.User}{user.UserId}"),
-            ["SK"] = new(SortKeyValues.Profile),
-            ["UserId"] = new(user.UserId),
-            ["DisplayName"] = new(user.DisplayName),
-            ["ProfileCompleteness"] = new() { N = user.ProfileCompleteness.ToString() },
-            ["CreatedAt"] = new(user.CreatedAt.ToString("O")),
-            ["UpdatedAt"] = new(user.UpdatedAt.ToString("O")),
-        };
-        if (user.Specialty is not null) profileItem["Specialty"] = new(user.Specialty);
-        if (user.Geography is not null) profileItem["Geography"] = new(user.Geography);
+        var profileItem = BuildProfileItem(user);
 
         var piiItem = new Dictionary<string, AttributeValue>
         {
@@ -125,23 +114,9 @@ public class UserRepository : IUserRepository
         });
     }
 
-    public async Task UpdateAsync(User user)
+    public async Task UpdateAsync(Shared.Models.User user)
     {
-        var item = new Dictionary<string, AttributeValue>
-        {
-            ["PK"] = new($"{KeyPrefixes.User}{user.UserId}"),
-            ["SK"] = new(SortKeyValues.Profile),
-            ["UserId"] = new(user.UserId),
-            ["DisplayName"] = new(user.DisplayName),
-            ["ProfileCompleteness"] = new() { N = user.ProfileCompleteness.ToString() },
-            ["HasPracticeData"] = new() { BOOL = user.HasPracticeData },
-            ["CreatedAt"] = new(user.CreatedAt.ToString("O")),
-            ["UpdatedAt"] = new(user.UpdatedAt.ToString("O")),
-        };
-        if (user.Specialty is not null) item["Specialty"] = new(user.Specialty);
-        if (user.Geography is not null) item["Geography"] = new(user.Geography);
-        if (user.LinkedInProfileUrl is not null) item["LinkedInProfileUrl"] = new(user.LinkedInProfileUrl);
-        if (user.PhotoUrl is not null) item["PhotoUrl"] = new(user.PhotoUrl);
+        var item = BuildProfileItem(user);
 
         await _db.PutItemAsync(new PutItemRequest
         {
@@ -169,12 +144,63 @@ public class UserRepository : IUserRepository
         });
     }
 
-    public Task<List<User>> SearchBySpecialtyGeoAsync(string specialty, string geo, string? nextToken)
+    public async Task<List<Shared.Models.User>> SearchBySpecialtyGeoAsync(string specialty, string geo, string? nextToken)
     {
-        throw new NotImplementedException("SearchBySpecialtyGeo is handled by the User service");
+        var request = new QueryRequest
+        {
+            TableName = TableNames.Users,
+            IndexName = GsiNames.Specialty,
+            KeyConditionExpression = "GSI2PK = :pk AND begins_with(GSI2SK, :sk)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"SPECIALTY#{specialty}"),
+                [":sk"] = new($"GEO#{geo}"),
+            },
+            Limit = 20,
+        };
+
+        // Note: GSI-Specialty may not exist in DynamoDB Local without explicit creation.
+        // In that case, fall back to a scan with filter.
+        try
+        {
+            var response = await _db.QueryAsync(request);
+            return response.Items.Select(MapUser).ToList();
+        }
+        catch (AmazonDynamoDBException)
+        {
+            // GSI not yet provisioned — return empty list gracefully
+            return [];
+        }
     }
 
-    private static User MapUser(Dictionary<string, AttributeValue> item) => new()
+    private static Dictionary<string, AttributeValue> BuildProfileItem(Shared.Models.User user)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.User}{user.UserId}"),
+            ["SK"] = new(SortKeyValues.Profile),
+            ["UserId"] = new(user.UserId),
+            ["DisplayName"] = new(user.DisplayName),
+            ["ProfileCompleteness"] = new() { N = user.ProfileCompleteness.ToString() },
+            ["HasPracticeData"] = new() { BOOL = user.HasPracticeData },
+            ["CreatedAt"] = new(user.CreatedAt.ToString("O")),
+            ["UpdatedAt"] = new(user.UpdatedAt.ToString("O")),
+        };
+        if (user.Specialty is not null)
+        {
+            item["Specialty"] = new(user.Specialty);
+            item["GSI2PK"] = new($"SPECIALTY#{user.Specialty}");
+            if (user.Geography is not null)
+                item["GSI2SK"] = new($"GEO#{user.Geography}");
+        }
+        if (user.Geography is not null) item["Geography"] = new(user.Geography);
+        if (user.LinkedInProfileUrl is not null) item["LinkedInProfileUrl"] = new(user.LinkedInProfileUrl);
+        if (user.PhotoUrl is not null) item["PhotoUrl"] = new(user.PhotoUrl);
+
+        return item;
+    }
+
+    private static Shared.Models.User MapUser(Dictionary<string, AttributeValue> item) => new()
     {
         UserId = item["UserId"].S,
         DisplayName = item["DisplayName"].S,

@@ -14,6 +14,14 @@ public class User
 
     public string? Geography { get; set; }
 
+    [Url, MaxLength(500)]
+    public string? LinkedInProfileUrl { get; set; }
+
+    [Url, MaxLength(500)]
+    public string? PhotoUrl { get; set; }
+
+    public bool HasPracticeData { get; set; }
+
     [Range(0, 100)]
     public decimal ProfileCompleteness { get; set; }
 

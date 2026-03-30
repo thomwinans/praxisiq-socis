@@ -12,4 +12,7 @@ public class UpdateProfileRequest
 
     [MaxLength(200)]
     public string? Geography { get; set; }
+
+    [Url, MaxLength(500)]
+    public string? PhotoUrl { get; set; }
 }
