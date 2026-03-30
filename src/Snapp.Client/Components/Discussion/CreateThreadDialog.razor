@@ -1,0 +1,90 @@
+@inject IDiscussionService DiscussionService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">New Discussion Thread</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudTextField T="string"
+                          @bind-Value="_title"
+                          Label="Title"
+                          Required="true"
+                          RequiredError="Title is required"
+                          MaxLength="200"
+                          Counter="200"
+                          Variant="Variant.Outlined"
+                          Class="mb-3" />
+            <MudTextField T="string"
+                          @bind-Value="_content"
+                          Label="Content"
+                          Required="true"
+                          RequiredError="Content is required"
+                          MaxLength="10000"
+                          Counter="10000"
+                          Lines="6"
+                          Variant="Variant.Outlined" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="SubmitAsync"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_submitting">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Create Thread
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string NetworkId { get; set; } = string.Empty;
+
+    private MudForm _form = null!;
+    private string _title = string.Empty;
+    private string _content = string.Empty;
+    private bool _submitting;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _submitting = true;
+        try
+        {
+            var request = new CreateThreadRequest
+            {
+                NetworkId = NetworkId,
+                Title = _title,
+                Content = _content,
+            };
+            var result = await DiscussionService.CreateThreadAsync(NetworkId, request);
+            if (result is not null)
+            {
+                Snackbar.Add("Thread created!", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(result));
+            }
+            else
+            {
+                Snackbar.Add("Failed to create thread.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Failed to create thread.", Severity.Error);
+        }
+        _submitting = false;
+    }
+}

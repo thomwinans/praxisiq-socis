@@ -1,7 +1,94 @@
 @page "/networks/{NetId}/discuss/{ThreadId}"
 @attribute [Authorize]
+@inject IDiscussionService DiscussionService
+@inject SnappAuthStateProvider AuthState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4">Discussion Thread</MudText>
+<MudButton Variant="Variant.Text"
+           StartIcon="@Icons.Material.Filled.ArrowBack"
+           OnClick="@(() => Navigation.NavigateTo($"/networks/{NetId}/discuss"))"
+           Class="mb-2">
+    Back to Discussions
+</MudButton>
+
+@if (_loading && _thread is null)
+{
+    <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="my-4">
+        Failed to load thread.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else if (_thread is not null)
+{
+    <MudText Typo="Typo.h5" Class="mb-1">@_thread.Title</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+        Started by @_thread.AuthorDisplayName &bull; @_thread.CreatedAt.ToString("MMM d, yyyy 'at' h:mm tt")
+    </MudText>
+
+    <MudDivider Class="mb-4" />
+
+    @if (_replies.Count == 0 && !_loading)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="my-4">No replies yet.</MudText>
+    }
+    else
+    {
+        <MudList T="ReplyResponse" Dense="false">
+            @foreach (var reply in _replies)
+            {
+                <MudListItem T="ReplyResponse">
+                    <div class="d-flex gap-3 py-2" style="width:100%;">
+                        <MudAvatar Color="Color.Primary" Size="Size.Small">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" />
+                        </MudAvatar>
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <div class="d-flex align-center gap-2">
+                                <MudText Typo="Typo.subtitle2">@reply.AuthorDisplayName</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @FormatTimeAgo(reply.CreatedAt)
+                                </MudText>
+                                @if (reply.AuthorUserId == AuthState.CurrentUserId)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="@(() => DeleteReplyAsync(reply))" />
+                                }
+                            </div>
+                            <MudText Typo="Typo.body2" Class="mt-1">
+                                @((MarkupString)RenderMarkdown(reply.Content))
+                            </MudText>
+                        </div>
+                    </div>
+                </MudListItem>
+                <MudDivider />
+            }
+        </MudList>
+
+        @if (_repliesNextToken is not null)
+        {
+            <div class="d-flex justify-center mt-4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           OnClick="LoadMoreRepliesAsync"
+                           Disabled="_loading">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Load More Replies
+                </MudButton>
+            </div>
+        }
+    }
+
+    <ReplyComposer OnReplySubmitted="HandleReplySubmittedAsync" />
+}
 
 @code {
     [Parameter]
@@ -9,4 +96,106 @@
 
     [Parameter]
     public string ThreadId { get; set; } = string.Empty;
+
+    private ThreadResponse? _thread;
+    private List<ReplyResponse> _replies = new();
+    private string? _repliesNextToken;
+    private bool _loading = true;
+    private bool _error;
+
+    private static readonly Markdig.MarkdownPipeline _pipeline =
+        new Markdig.MarkdownPipelineBuilder().Build();
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        try
+        {
+            _thread = await DiscussionService.GetThreadAsync(ThreadId);
+            if (_thread is null)
+            {
+                _error = true;
+                _loading = false;
+                return;
+            }
+
+            var repliesResult = await DiscussionService.GetRepliesAsync(ThreadId);
+            _replies = repliesResult.Replies;
+            _repliesNextToken = repliesResult.NextToken;
+        }
+        catch
+        {
+            _error = true;
+        }
+        _loading = false;
+    }
+
+    private async Task LoadMoreRepliesAsync()
+    {
+        if (_repliesNextToken is null || _loading) return;
+        _loading = true;
+        try
+        {
+            var result = await DiscussionService.GetRepliesAsync(ThreadId, _repliesNextToken);
+            _replies.AddRange(result.Replies);
+            _repliesNextToken = result.NextToken;
+        }
+        catch
+        {
+            Snackbar.Add("Failed to load more replies.", Severity.Error);
+        }
+        _loading = false;
+    }
+
+    private async Task HandleReplySubmittedAsync(string content)
+    {
+        var request = new CreateReplyRequest
+        {
+            ThreadId = ThreadId,
+            Content = content,
+        };
+        var reply = await DiscussionService.CreateReplyAsync(ThreadId, request);
+        if (reply is not null)
+        {
+            _replies.Add(reply);
+            Snackbar.Add("Reply posted!", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to post reply.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteReplyAsync(ReplyResponse reply)
+    {
+        var success = await DiscussionService.DeleteReplyAsync(ThreadId, reply.ReplyId);
+        if (success)
+        {
+            reply.Content = "[removed]";
+            Snackbar.Add("Reply deleted.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to delete reply.", Severity.Error);
+        }
+    }
+
+    private static string RenderMarkdown(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+        return Markdig.Markdown.ToHtml(content, _pipeline);
+    }
+
+    private static string FormatTimeAgo(DateTime utcTime)
+    {
+        var elapsed = DateTime.UtcNow - utcTime;
+        if (elapsed.TotalMinutes < 1) return "just now";
+        if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
+        if (elapsed.TotalDays < 30) return $"{(int)elapsed.TotalDays}d ago";
+        return utcTime.ToString("MMM d, yyyy");
+    }
 }

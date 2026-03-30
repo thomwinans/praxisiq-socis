@@ -1,9 +1,174 @@
 @page "/networks/{NetId}/discuss"
 @attribute [Authorize]
+@inject IDiscussionService DiscussionService
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4">Discussions</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Discussions</MudText>
+
+@if (_loading && _threads.Count == 0)
+{
+    <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="my-4">
+        Failed to load discussions.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else
+{
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialogAsync"
+               Class="mb-4">
+        New Thread
+    </MudButton>
+
+    @if (_threads.Count == 0)
+    {
+        <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Filled.Forum" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No discussions yet</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Start a new thread to get the conversation going.</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudList T="ThreadResponse" Dense="false">
+            @foreach (var thread in _threads)
+            {
+                <MudListItem T="ThreadResponse"
+                             OnClick="@(() => NavigateToThread(thread.ThreadId))">
+                    <div class="d-flex align-center gap-3 py-1" style="width:100%;">
+                        <MudAvatar Color="Color.Primary" Size="Size.Medium">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" />
+                        </MudAvatar>
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@thread.Title</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @thread.AuthorDisplayName &bull; @FormatTimeAgo(thread.CreatedAt)
+                            </MudText>
+                        </div>
+                        <div class="d-flex align-center gap-2">
+                            <MudBadge Content="@thread.ReplyCount"
+                                      Color="Color.Primary"
+                                      Overlap="false"
+                                      Bordered="true"
+                                      Visible="@(thread.ReplyCount > 0)">
+                                <MudIcon Icon="@Icons.Material.Filled.ChatBubbleOutline" Size="Size.Small" />
+                            </MudBadge>
+                            @if (thread.LastReplyAt.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="white-space:nowrap;">
+                                    @FormatTimeAgo(thread.LastReplyAt.Value)
+                                </MudText>
+                            }
+                        </div>
+                    </div>
+                </MudListItem>
+                <MudDivider />
+            }
+        </MudList>
+
+        @if (_nextToken is not null)
+        {
+            <div class="d-flex justify-center mt-4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           OnClick="LoadMoreAsync"
+                           Disabled="_loading">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Load More
+                </MudButton>
+            </div>
+        }
+    }
+}
 
 @code {
     [Parameter]
     public string NetId { get; set; } = string.Empty;
+
+    private List<ThreadResponse> _threads = new();
+    private string? _nextToken;
+    private bool _loading = true;
+    private bool _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _threads.Clear();
+        _nextToken = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        try
+        {
+            var result = await DiscussionService.GetThreadsAsync(NetId);
+            _threads = result.Threads;
+            _nextToken = result.NextToken;
+        }
+        catch
+        {
+            _error = true;
+        }
+        _loading = false;
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_nextToken is null || _loading) return;
+        _loading = true;
+        try
+        {
+            var result = await DiscussionService.GetThreadsAsync(NetId, _nextToken);
+            _threads.AddRange(result.Threads);
+            _nextToken = result.NextToken;
+        }
+        catch
+        {
+            // Keep existing threads, just stop loading
+        }
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var parameters = new DialogParameters<CreateThreadDialog>
+        {
+            { x => x.NetworkId, NetId }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<CreateThreadDialog>("New Thread", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is ThreadResponse thread)
+        {
+            Navigation.NavigateTo($"/networks/{NetId}/discuss/{thread.ThreadId}");
+        }
+    }
+
+    private void NavigateToThread(string threadId)
+    {
+        Navigation.NavigateTo($"/networks/{NetId}/discuss/{threadId}");
+    }
+
+    private static string FormatTimeAgo(DateTime utcTime)
+    {
+        var elapsed = DateTime.UtcNow - utcTime;
+        if (elapsed.TotalMinutes < 1) return "just now";
+        if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
+        if (elapsed.TotalDays < 30) return $"{(int)elapsed.TotalDays}d ago";
+        return utcTime.ToString("MMM d, yyyy");
+    }
 }

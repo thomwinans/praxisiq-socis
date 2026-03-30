@@ -1,0 +1,59 @@
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-3 mt-4" Elevation="1">
+    <MudTextField T="string"
+                  @bind-Value="_content"
+                  Label="Write a reply..."
+                  Lines="3"
+                  MaxLength="5000"
+                  Counter="5000"
+                  Variant="Variant.Outlined"
+                  HelperText="Shift+Enter for newline"
+                  OnKeyDown="HandleKeyDown"
+                  Disabled="_submitting" />
+    <div class="d-flex justify-end mt-2">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SubmitAsync"
+                   Disabled="@(string.IsNullOrWhiteSpace(_content) || _submitting)">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Reply
+        </MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public EventCallback<string> OnReplySubmitted { get; set; }
+
+    private string _content = string.Empty;
+    private bool _submitting;
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SubmitAsync();
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_content) || _submitting) return;
+
+        _submitting = true;
+        try
+        {
+            await OnReplySubmitted.InvokeAsync(_content.Trim());
+            _content = string.Empty;
+        }
+        catch
+        {
+            Snackbar.Add("Failed to post reply.", Severity.Error);
+        }
+        _submitting = false;
+    }
+}
