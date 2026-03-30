@@ -1,0 +1,89 @@
+@page "/login"
+@inject IAuthService AuthService
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-16">
+    <MudCard Elevation="1" Class="pa-4">
+        <MudCardHeader>
+            <MudText Typo="Typo.h4" Align="Align.Center">Sign In</MudText>
+        </MudCardHeader>
+        <MudCardContent>
+            @if (_sent)
+            {
+                <MudAlert Severity="Severity.Success" Class="mb-4">
+                    Check your email for a login link.
+                </MudAlert>
+            }
+            else
+            {
+                <MudForm @ref="_form" @bind-IsValid="_isValid">
+                    <MudTextField T="string"
+                                  @bind-Value="_email"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  InputType="InputType.Email"
+                                  Required="true"
+                                  RequiredError="Email is required"
+                                  Validation="@(new Func<string, string?>(ValidateEmail))"
+                                  Class="mb-4" />
+
+                    @if (_error is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+                    }
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               Disabled="@(!_isValid || _loading)"
+                               OnClick="SendMagicLinkAsync">
+                        @if (_loading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Send Magic Link
+                    </MudButton>
+                </MudForm>
+            }
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private MudForm? _form;
+    private string _email = string.Empty;
+    private bool _isValid;
+    private bool _loading;
+    private bool _sent;
+    private string? _error;
+
+    private string? ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "Email is required";
+        if (!email.Contains('@') || !email.Contains('.'))
+            return "Enter a valid email address";
+        return null;
+    }
+
+    private async Task SendMagicLinkAsync()
+    {
+        _error = null;
+        _loading = true;
+
+        try
+        {
+            await AuthService.RequestMagicLinkAsync(_email);
+            _sent = true;
+        }
+        catch
+        {
+            // Always show success to avoid email enumeration
+            _sent = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

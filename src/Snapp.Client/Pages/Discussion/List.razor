@@ -1,0 +1,9 @@
+@page "/networks/{NetId}/discuss"
+@attribute [Authorize]
+
+<MudText Typo="Typo.h4">Discussions</MudText>
+
+@code {
+    [Parameter]
+    public string NetId { get; set; } = string.Empty;
+}

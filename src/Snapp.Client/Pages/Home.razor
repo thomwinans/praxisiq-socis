@@ -1,0 +1,53 @@
+@page "/"
+@inject NavigationManager Navigation
+@inject NetworkState NetworkState
+
+<AuthorizeView>
+    <Authorized>
+        @* Authenticated users redirect to their network feed or network list *@
+    </Authorized>
+    <NotAuthorized>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16">
+            <MudStack AlignItems="AlignItems.Center" Spacing="6">
+                <MudText Typo="Typo.h1" Align="Align.Center" Color="Color.Primary">
+                    PraxisIQ
+                </MudText>
+                <MudText Typo="Typo.h4" Align="Align.Center">
+                    Where practitioners build real guilds
+                </MudText>
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary" Class="mb-4">
+                    Join a network of owner-operated specialty practices. Share intelligence, build reputation, and grow together.
+                </MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           Href="/login"
+                           StartIcon="@Icons.Material.Filled.Login">
+                    Get Started
+                </MudButton>
+            </MudStack>
+        </MudContainer>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            if (state.User.Identity?.IsAuthenticated == true)
+            {
+                if (NetworkState.CurrentNetworkId is not null)
+                    Navigation.NavigateTo($"/networks/{NetworkState.CurrentNetworkId}/feed");
+                else
+                    Navigation.NavigateTo("/networks");
+            }
+        }
+    }
+}

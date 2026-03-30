@@ -1,0 +1,62 @@
+@page "/login/callback"
+@inject IAuthService AuthService
+@inject SnappAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-16">
+    <MudCard Elevation="1" Class="pa-4">
+        <MudCardContent>
+            @if (_loading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <MudText Typo="Typo.body1">Verifying your login link...</MudText>
+                </MudStack>
+            }
+            else if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Href="/login">
+                    Try Again
+                </MudButton>
+            }
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery(Name = "code")]
+    public string? Code { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        if (string.IsNullOrWhiteSpace(Code))
+        {
+            _error = "Invalid login link.";
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            var response = await AuthService.ValidateCodeAsync(Code);
+            await AuthStateProvider.SetTokensAsync(response.AccessToken, response.RefreshToken);
+            Navigation.NavigateTo("/");
+        }
+        catch
+        {
+            _error = "Link expired or invalid. Please try again.";
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

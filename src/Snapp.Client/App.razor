@@ -1,8 +1,22 @@
-<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" />
-    </Found>
-    <NotFound>
-        <p>Not found</p>
-    </NotFound>
-</Router>
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+                    <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">Page Not Found</MudText>
+                    <MudText Align="Align.Center" Class="mb-4">The page you're looking for doesn't exist.</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" FullWidth="false"
+                               Class="d-flex mx-auto">Go Home</MudButton>
+                </MudContainer>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

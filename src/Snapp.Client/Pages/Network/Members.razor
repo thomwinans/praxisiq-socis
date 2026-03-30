@@ -1,0 +1,9 @@
+@page "/networks/{NetId}/members"
+@attribute [Authorize]
+
+<MudText Typo="Typo.h4">Members</MudText>
+
+@code {
+    [Parameter]
+    public string NetId { get; set; } = string.Empty;
+}

@@ -1,0 +1,9 @@
+@page "/deals/{DealId}"
+@attribute [Authorize]
+
+<MudText Typo="Typo.h4">Deal Room</MudText>
+
+@code {
+    [Parameter]
+    public string DealId { get; set; } = string.Empty;
+}

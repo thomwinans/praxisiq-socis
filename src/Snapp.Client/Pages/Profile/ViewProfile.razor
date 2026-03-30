@@ -1,0 +1,8 @@
+@page "/profile/{UserId}"
+
+<MudText Typo="Typo.h4">User Profile</MudText>
+
+@code {
+    [Parameter]
+    public string UserId { get; set; } = string.Empty;
+}

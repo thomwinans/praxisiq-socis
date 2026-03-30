@@ -1,0 +1,42 @@
+/* SNAPP Global Styles */
+
+html, body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+#app {
+    min-height: 100vh;
+}
+
+/* Blazor error UI */
+#blazor-error-ui {
+    background: #DC3545;
+    color: white;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0,0,0,0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+.blazor-error-boundary {
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MiAyNjYuNjA2IDUyLjI2NkwyOTAuMTggNzQuODRDMjkwLjk3MyA3NS42MjMgMjkxLjQ1NSA3Ni43MTkgMjkxLjQ1NSA3Ny45NkMyOTEuNDU1IDc5LjIwMSAyOTAuOTczIDgwLjI5NyAyOTAuMTggODEuMDhMMjY2LjYwNiA5Ni42NTRDMjY1LjgxMyA5Ny40NTcgMjY0LjcxNyA5Ny45NTkgMjYzLjUwNiA5Ny45NTlDMjYxLjA4NCA5Ny45NTkgMjU5LjEzMSA5Ni4wMDcgMjU5LjEzMSA5My41ODVMMjU5LjEzMSA4Mi4xMjdIMjQ2LjMzM0MyNDMuOTEgODIuMTI3IDI0MS45NTkgODAuMTc1IDI0MS45NTkgNzcuNzUzQzI0MS45NTkgNzUuMzMxIDI0My45MSA3My4zNzkgMjQ2LjMzMyA3My4zNzlIMjU5LjEzMUwyNTkuMTMxIDYxLjkyMUMyNTkuMTMxIDU5LjUgMjYxLjA4NCA1Ny41NDcgMjYzLjUwNiA1Ny41NDdaIiBmaWxsPSIjRkZGIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGZpbGwtb3BhY2l0eT0iMSIgdHJhbnNmb3JtPSJtYXRyaXgoMSAwIDAgMSAzNi4wMDcgLTEyLjI0NSkiLz48L2c+PC9zdmc+) no-repeat 1rem/1.8rem, #b32121;
+    padding: 1rem 1rem 1rem 3.7rem;
+    color: white;
+}
+
+.blazor-error-boundary::after {
+    content: "An error has occurred.";
+}

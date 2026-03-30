@@ -1,0 +1,195 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject AppState AppState
+@inject NetworkState NetworkState
+@inject INetworkService NetworkService
+@inject SnappAuthStateProvider AuthStateProvider
+
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="true">
+        <AuthorizeView>
+            <Authorized>
+                <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                               Color="Color.Inherit"
+                               Edge="Edge.Start"
+                               OnClick="ToggleDrawer" />
+            </Authorized>
+        </AuthorizeView>
+
+        <MudText Typo="Typo.h6" Class="ml-2" Style="font-weight:700;">
+            SNAPP
+        </MudText>
+        <MudText Typo="Typo.caption" Class="ml-1 mt-1" Color="Color.Secondary">
+            PraxisIQ
+        </MudText>
+
+        <MudSpacer />
+
+        <AuthorizeView>
+            <Authorized>
+                <MudTextField T="string"
+                              Placeholder="Search..."
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Class="mr-4"
+                              Style="max-width:320px;" />
+
+                <MudIconButton Icon="@Icons.Material.Outlined.Notifications"
+                               Color="Color.Inherit" />
+
+                <MudMenu AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight">
+                    <ActivatorContent>
+                        <MudAvatar Size="Size.Small" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" />
+                        </MudAvatar>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <MudMenuItem Href="/profile"
+                                     Icon="@Icons.Material.Filled.Person">Profile</MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Settings">Settings</MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem OnClick="LogoutAsync"
+                                     Icon="@Icons.Material.Filled.Logout">Logout</MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Href="/login"
+                           Size="Size.Small">
+                    Sign In
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <AuthorizeView>
+        <Authorized>
+            <MudDrawer @bind-Open="AppState.IsDrawerOpen"
+                       Elevation="1"
+                       Variant="@DrawerVariant.Responsive"
+                       Breakpoint="Breakpoint.Lg">
+                <MudDrawerHeader Class="pa-4">
+                    <MudSelect T="string"
+                               Label="Network"
+                               Value="@NetworkState.CurrentNetworkId"
+                               ValueChanged="OnNetworkChangedAsync"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               FullWidth="true">
+                        @foreach (var net in _networks)
+                        {
+                            <MudSelectItem T="string" Value="@net.NetworkId">@net.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudDrawerHeader>
+                <MudNavMenu>
+                    @if (NetworkState.CurrentNetworkId is not null)
+                    {
+                        <MudNavLink Href="@($"/networks/{NetworkState.CurrentNetworkId}/feed")"
+                                    Icon="@Icons.Material.Filled.DynamicFeed"
+                                    Match="NavLinkMatch.Prefix">Feed</MudNavLink>
+                        <MudNavLink Href="@($"/networks/{NetworkState.CurrentNetworkId}/discuss")"
+                                    Icon="@Icons.Material.Filled.Forum"
+                                    Match="NavLinkMatch.Prefix">Discussions</MudNavLink>
+                        <MudNavLink Href="@($"/networks/{NetworkState.CurrentNetworkId}/members")"
+                                    Icon="@Icons.Material.Filled.People"
+                                    Match="NavLinkMatch.Prefix">Members</MudNavLink>
+                        <MudNavLink Href="@($"/networks/{NetworkState.CurrentNetworkId}")"
+                                    Icon="@Icons.Material.Filled.Home"
+                                    Match="NavLinkMatch.All">Network Home</MudNavLink>
+                        @if (NetworkState.UserRole is "steward" or "admin")
+                        {
+                            <MudNavLink Href="@($"/networks/{NetworkState.CurrentNetworkId}/settings")"
+                                        Icon="@Icons.Material.Filled.Settings"
+                                        Match="NavLinkMatch.Prefix">Settings</MudNavLink>
+                        }
+                        <MudDivider Class="my-2" />
+                    }
+                    <MudNavLink Href="/intelligence"
+                                Icon="@Icons.Material.Filled.Insights"
+                                Match="NavLinkMatch.Prefix">Intelligence</MudNavLink>
+                    <MudNavLink Href="/referrals"
+                                Icon="@Icons.Material.Filled.Share"
+                                Match="NavLinkMatch.Prefix">Referrals</MudNavLink>
+                    <MudNavLink Href="/deals"
+                                Icon="@Icons.Material.Filled.Handshake"
+                                Match="NavLinkMatch.Prefix">Deal Rooms</MudNavLink>
+                </MudNavMenu>
+                <MudSpacer />
+                <div class="pa-4">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               Href="/networks/create"
+                               StartIcon="@Icons.Material.Filled.Add">
+                        Create Network
+                    </MudButton>
+                </div>
+            </MudDrawer>
+        </Authorized>
+    </AuthorizeView>
+
+    <MudMainContent Class="pt-6 pa-6">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private readonly MudTheme _theme = Theme.SnappTheme.Create();
+    private List<Snapp.Shared.DTOs.Network.NetworkResponse> _networks = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await NetworkState.InitializeAsync();
+            await LoadNetworksAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadNetworksAsync()
+    {
+        try
+        {
+            var result = await NetworkService.GetMyNetworksAsync();
+            _networks = result.Networks;
+
+            if (NetworkState.CurrentNetworkId is null && _networks.Count > 0)
+            {
+                var first = _networks[0];
+                await NetworkState.SetCurrentNetworkAsync(first.NetworkId, first.Name, first.UserRole);
+            }
+        }
+        catch
+        {
+            // Not authenticated or API unavailable
+        }
+    }
+
+    private async Task OnNetworkChangedAsync(string networkId)
+    {
+        var net = _networks.FirstOrDefault(n => n.NetworkId == networkId);
+        if (net is not null)
+            await NetworkState.SetCurrentNetworkAsync(net.NetworkId, net.Name, net.UserRole);
+    }
+
+    private void ToggleDrawer() => AppState.ToggleDrawer();
+
+    private async Task LogoutAsync()
+    {
+        await AuthStateProvider.ClearTokensAsync();
+        await NetworkState.ClearAsync();
+        Navigation.NavigateTo("/login");
+    }
+}
