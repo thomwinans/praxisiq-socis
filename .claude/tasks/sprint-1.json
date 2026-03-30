@@ -1,0 +1,70 @@
+{
+  "sprint": "S1",
+  "description": "Foundation — Local dev environment, shared contracts, Blazor shell, OpenAPI pipeline",
+  "tasks": [
+    {
+      "id": "S1-001",
+      "title": "Initialize git repository and solution structure",
+      "agent": "delta",
+      "depends_on": [],
+      "prompt": "Initialize a git repository in the current directory. Create the .NET solution structure as specified in SNAPP-TRD.md Appendix B:\n\n1. Create snapp.sln\n2. Create Directory.Build.props with shared MSBuild properties (.NET 9, nullable enable, implicit usings)\n3. Create all project directories under src/ and test/ (empty .csproj files with correct project references)\n4. Create .gitignore for .NET\n5. Create initial commit\n\nDo NOT implement any code yet — just the solution skeleton that compiles (empty projects with correct references).",
+      "done_when": "dotnet build snapp.sln succeeds with zero errors. Git repo initialized with first commit."
+    },
+    {
+      "id": "S1-002",
+      "title": "Local development environment — Docker Compose + Kong + DynamoDB Local",
+      "agent": "delta",
+      "depends_on": ["S1-001"],
+      "prompt": "Create the complete local development environment as specified in SNAPP-TRD.md WU-0.1:\n\n1. Create src/Snapp.Infrastructure/Docker/docker-compose.yml with: dynamodb-local (port 8042), kong + kong-database (postgres), minio (ports 9000/9001), papercut (ports 1025/8025), swagger-ui (port 8090)\n2. Create src/Snapp.Infrastructure/Kong/kong.yml with route stubs for all API services\n3. Create src/Snapp.Infrastructure/Docker/keys/ directory with scripts to generate dev-master.key and jwt-signing.pem\n4. Create src/Snapp.Infrastructure/Scripts/init-dynamo-local.sh — creates all 6 DynamoDB tables with GSIs as specified in TRD Section 4\n5. Create src/Snapp.Infrastructure/Scripts/init-kong.sh\n6. Create src/Snapp.Infrastructure/Scripts/init-minio.sh\n7. Create src/Snapp.Infrastructure/Scripts/setup-local.sh — orchestrates everything\n\nAll scripts must be idempotent. Use AWS CLI for DynamoDB Local table creation. Test that setup-local.sh runs clean.",
+      "done_when": "setup-local.sh completes without error. DynamoDB Local responds on 8042. Kong on 8000. MinIO on 9000. Papercut on 8025. All 6 tables created."
+    },
+    {
+      "id": "S1-003",
+      "title": "Shared Library — Models, Enums, Constants",
+      "agent": "archie",
+      "depends_on": ["S1-001"],
+      "prompt": "Implement all models, enums, and constants in Snapp.Shared as specified in SNAPP-TRD.md WU-0.3:\n\n1. All Models/ (User, UserPii, Network, NetworkMembership, NetworkRole, Post, Thread, Reply, Referral, Reputation, PracticeData, Valuation, Benchmark, Notification, NotificationPreferences, DealRoom, DealDocument)\n2. All Enums/ (MembershipStatus, PostType, ReferralStatus, DealStatus, NotificationType, Permission flags)\n3. Constants/TableNames.cs, Constants/KeyPrefixes.cs, Constants/Limits.cs\n4. Auth/ClaimTypes.cs, Auth/Permission.cs (flags enum)\n\nAll models must serialize/deserialize to JSON correctly. Permission enum must use [Flags] attribute correctly. Constants must match TRD Section 4 exactly.",
+      "done_when": "dotnet build Snapp.Shared succeeds with zero warnings. All models round-trip through System.Text.Json."
+    },
+    {
+      "id": "S1-004",
+      "title": "Shared Library — DTOs and Validation",
+      "agent": "archie",
+      "depends_on": ["S1-003"],
+      "prompt": "Implement all DTOs with validation attributes in Snapp.Shared as specified in SNAPP-TRD.md WU-0.3:\n\n1. DTOs/Auth/ (MagicLinkRequest, MagicLinkValidateRequest, TokenResponse, RefreshRequest)\n2. DTOs/User/ (CreateProfileRequest, UpdateProfileRequest, ProfileResponse, OnboardingRequest)\n3. DTOs/Network/ (CreateNetworkRequest, UpdateNetworkRequest, NetworkResponse, NetworkListResponse, ApplyRequest, ApplicationDecisionRequest, MemberResponse, MemberListResponse)\n4. DTOs/Content/ (CreatePostRequest, PostResponse, FeedResponse, CreateThreadRequest, CreateReplyRequest, ThreadResponse, ThreadListResponse, ReplyResponse, ReplyListResponse)\n5. DTOs/Intelligence/ (SubmitDataRequest, DashboardResponse, KpiItem, BenchmarkRequest, BenchmarkResponse, BenchmarkMetric, ValuationResponse, ValuationDriver, ValuationSnapshot)\n6. DTOs/Transaction/ (CreateReferralRequest, UpdateReferralStatusRequest, RecordOutcomeRequest, ReferralResponse, ReferralListResponse, ReputationResponse)\n7. DTOs/Notification/ (NotificationResponse, NotificationListResponse, UpdatePreferencesRequest, DigestPreviewResponse)\n8. Common ErrorResponse DTO\n\nAll request DTOs must have [Required], [MaxLength], [EmailAddress] etc. validation attributes as appropriate.",
+      "done_when": "dotnet build succeeds. FluentValidation or DataAnnotations reject invalid inputs correctly."
+    },
+    {
+      "id": "S1-005",
+      "title": "Shared Library — Interfaces and Encryption Contract",
+      "agent": "archie",
+      "depends_on": ["S1-003"],
+      "prompt": "Implement all repository interfaces and the encryption interface in Snapp.Shared as specified in SNAPP-TRD.md WU-0.3:\n\n1. Interfaces/IFieldEncryptor.cs (EncryptAsync, DecryptAsync, EncryptWithKeyIdAsync)\n2. Interfaces/IUserRepository.cs\n3. Interfaces/INetworkRepository.cs\n4. Interfaces/IContentRepository.cs\n5. Interfaces/IIntelligenceRepository.cs\n6. Interfaces/ITransactionRepository.cs\n7. Interfaces/INotificationRepository.cs\n8. Hosting/ServiceCollectionExtensions.cs (AddSnappDynamo, AddSnappEncryption, AddSnappAuth stubs)\n\nThese are CONTRACTS only. No implementation code. Every method signature must have XML doc comments describing behavior.",
+      "done_when": "dotnet build succeeds. All interfaces are in Snapp.Shared/Interfaces/. All method signatures match TRD WU-0.3."
+    },
+    {
+      "id": "S1-006",
+      "title": "UX Theme and Layout Specification",
+      "agent": "sage",
+      "depends_on": [],
+      "prompt": "Create UX specifications for SNAPP in docs/ux/:\n\n1. docs/ux/theme-spec.md — MudBlazor theme configuration (use the palette and typography from your agent config in .claude/agents/sage.md as the starting point). Include color usage guidelines, typography scale, spacing system, component border radius.\n\n2. docs/ux/layout-spec.md — Main application layout specification using MudBlazor components:\n   - AppBar: logo, search, notification bell, profile menu\n   - Drawer: network selector, navigation links (context-sensitive), create network button\n   - MainContent area\n   - Responsive behavior at 375px / 768px / 1440px\n\n3. docs/ux/onboarding-spec.md — Onboarding wizard flow (MudStepper):\n   - Step 1: About You (name, specialty, geography)\n   - Step 2: Your Practice (optional)\n   - Step 3: Connect (LinkedIn, phone)\n   - Loading, error, skip states\n   - All microcopy\n\n4. docs/ux/login-spec.md — Login flow (magic link):\n   - Email entry page\n   - 'Check your email' confirmation\n   - Callback/validation page\n   - Error states\n   - All microcopy",
+      "done_when": "All 4 markdown files created in docs/ux/ with MudBlazor component specifications precise enough for frontend implementation."
+    },
+    {
+      "id": "S1-007",
+      "title": "Blazor Shell with MudBlazor",
+      "agent": "frankie",
+      "depends_on": ["S1-003", "S1-006"],
+      "prompt": "Implement the Blazor WebAssembly shell as specified in SNAPP-TRD.md WU-0.4, using MudBlazor components and the theme from docs/ux/theme-spec.md:\n\n1. Snapp.Client as Blazor WASM standalone (.NET 9)\n2. Add MudBlazor NuGet package, configure in Program.cs\n3. Apply MudTheme from Sage's theme spec\n4. MainLayout.razor: MudLayout + MudAppBar + MudDrawer + MudNavMenu + MudMainContent\n5. All routes from TRD WU-0.4 (placeholder pages with page titles)\n6. Custom AuthenticationStateProvider (localStorage JWT via JS interop)\n7. Typed HttpClient with DelegatingHandler for Bearer token + 401 retry\n8. AuthState, NetworkState, AppState cascading parameters\n9. ProtectedRoute wrapper using AuthorizeView\n10. appsettings.json with ApiBaseUrl for local Kong\n\nAll placeholder pages should show MudText with the page title. The app must load and render the MudBlazor layout correctly.",
+      "done_when": "dotnet build succeeds. App loads in browser. MudBlazor theme applied. Layout renders with AppBar, Drawer, MainContent. Protected routes redirect to /login."
+    },
+    {
+      "id": "S1-008",
+      "title": "Shared Library Tests",
+      "agent": "quinn",
+      "depends_on": ["S1-003", "S1-004", "S1-005"],
+      "prompt": "Create comprehensive unit tests for Snapp.Shared in test/Snapp.Shared.Tests/:\n\n1. Model serialization tests: every model round-trips through System.Text.Json\n2. DTO validation tests: every required field rejects null/empty, every MaxLength rejects overflow, email fields reject invalid format\n3. Enum tests: Permission flags combine correctly, all enum values serialize as expected\n4. Constants tests: TableNames and KeyPrefixes match expected values from TRD\n5. Limits tests: verify constants have sensible values\n\nUse xUnit with [Theory] and [InlineData] for parameterized tests where appropriate. Test naming: {Type}_{Scenario}_{Expected}.",
+      "done_when": "dotnet test Snapp.Shared.Tests passes. ≥90% line coverage on models, DTOs, validation."
+    }
+  ]
+}
