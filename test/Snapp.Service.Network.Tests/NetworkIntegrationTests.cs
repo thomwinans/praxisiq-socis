@@ -382,6 +382,96 @@ public class NetworkIntegrationTests : IAsyncLifetime
         body.Networks.Should().OnlyContain(n => n.Name.StartsWith("My Net"));
     }
 
+    [Fact]
+    public async Task GetSettings_Steward_ReturnsSettingsWithRolesAndPendingCount()
+    {
+        var stewardJwt = await AuthenticateAsync($"net-settings-steward-{Guid.NewGuid():N}@test.snapp");
+        if (stewardJwt is null) return;
+
+        // Create network
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", stewardJwt);
+        var createResp = await _http.PostAsJsonAsync("/api/networks", new CreateNetworkRequest
+        {
+            Name = "Settings Test",
+            Description = "Test desc",
+            Charter = "Test charter",
+        });
+        var network = await createResp.Content.ReadFromJsonAsync<NetworkResponse>(JsonOptions);
+        var netId = network!.NetworkId;
+
+        // Add a pending application
+        var applicantJwt = await AuthenticateAsync($"net-settings-applicant-{Guid.NewGuid():N}@test.snapp");
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", applicantJwt!);
+        await _http.PostAsJsonAsync($"/api/networks/{netId}/apply", new ApplyRequest
+        {
+            NetworkId = netId,
+            ApplicationText = "Let me in",
+        });
+
+        // Fetch settings as steward
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", stewardJwt);
+        var settingsResp = await _http.GetAsync($"/api/networks/{netId}/settings");
+
+        settingsResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await settingsResp.Content.ReadFromJsonAsync<NetworkSettingsResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Network.NetworkId.Should().Be(netId);
+        body.Network.Name.Should().Be("Settings Test");
+        body.Network.Charter.Should().Be("Test charter");
+        body.Network.UserRole.Should().Be("steward");
+        body.Roles.Should().HaveCount(3);
+        body.Roles.Should().Contain(r => r.RoleName == "steward");
+        body.Roles.Should().Contain(r => r.RoleName == "member");
+        body.Roles.Should().Contain(r => r.RoleName == "associate");
+        body.PendingApplicationCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetSettings_NonStewardMember_ReturnsForbidden()
+    {
+        var stewardJwt = await AuthenticateAsync($"net-settings-ns-steward-{Guid.NewGuid():N}@test.snapp");
+        if (stewardJwt is null) return;
+
+        // Create network
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", stewardJwt);
+        var createResp = await _http.PostAsJsonAsync("/api/networks", new CreateNetworkRequest { Name = "Settings Perm Test" });
+        var network = await createResp.Content.ReadFromJsonAsync<NetworkResponse>(JsonOptions);
+        var netId = network!.NetworkId;
+
+        // Invite a member (non-steward)
+        var memberJwt = await AuthenticateAsync($"net-settings-ns-member-{Guid.NewGuid():N}@test.snapp");
+        var memberUserId = ExtractUserId(memberJwt!);
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", stewardJwt);
+        await _http.PostAsJsonAsync($"/api/networks/{netId}/invite", new { UserId = memberUserId });
+
+        // Try to get settings as member
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", memberJwt!);
+        var settingsResp = await _http.GetAsync($"/api/networks/{netId}/settings");
+
+        settingsResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetSettings_NonMember_ReturnsForbidden()
+    {
+        var stewardJwt = await AuthenticateAsync($"net-settings-nm-steward-{Guid.NewGuid():N}@test.snapp");
+        if (stewardJwt is null) return;
+
+        // Create network
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", stewardJwt);
+        var createResp = await _http.PostAsJsonAsync("/api/networks", new CreateNetworkRequest { Name = "Settings NonMember Test" });
+        var network = await createResp.Content.ReadFromJsonAsync<NetworkResponse>(JsonOptions);
+        var netId = network!.NetworkId;
+
+        // Try to get settings as non-member
+        var outsiderJwt = await AuthenticateAsync($"net-settings-nm-outsider-{Guid.NewGuid():N}@test.snapp");
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsiderJwt!);
+        var settingsResp = await _http.GetAsync($"/api/networks/{netId}/settings");
+
+        settingsResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────
 
     private async Task<string?> AuthenticateAsync(string email)

@@ -73,6 +73,13 @@ public class MockNetworkService : INetworkService
         return Task.FromResult(ShouldSucceed);
     }
 
+    public NetworkSettingsResponse? Settings { get; set; }
+
+    public Task<NetworkSettingsResponse?> GetSettingsAsync(string networkId)
+    {
+        return Task.FromResult(Settings);
+    }
+
     public Task<bool> RemoveMemberAsync(string networkId, string userId)
     {
         return Task.FromResult(ShouldSucceed);

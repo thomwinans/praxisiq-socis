@@ -13,6 +13,7 @@ public interface INetworkService
     Task<bool> ApplyAsync(string networkId, string? applicationText);
     Task<List<ApplicationResponse>> GetApplicationsAsync(string networkId);
     Task<bool> DecideApplicationAsync(string networkId, string userId, string decision, string? reason = null);
+    Task<NetworkSettingsResponse?> GetSettingsAsync(string networkId);
     Task<bool> RemoveMemberAsync(string networkId, string userId);
     Task<bool> ChangeMemberRoleAsync(string networkId, string userId, string newRole);
 }

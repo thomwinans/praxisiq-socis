@@ -62,6 +62,15 @@ public static class NetworkEndpoints
             .Produces<ErrorResponse>(401)
             .Produces<ErrorResponse>(403)
             .WithOpenApi();
+
+        app.MapGet("/api/networks/{netId}/settings", HandleGetSettings)
+            .WithName("GetNetworkSettings")
+            .WithTags("Networks")
+            .Produces<NetworkSettingsResponse>(200)
+            .Produces<ErrorResponse>(401)
+            .Produces<ErrorResponse>(403)
+            .Produces<ErrorResponse>(404)
+            .WithOpenApi();
     }
 
     private static async Task<IResult> HandleCreate(
@@ -267,6 +276,49 @@ public static class NetworkEndpoints
         }).ToList();
 
         return Results.Ok(new MemberListResponse { Members = responses });
+    }
+
+    private static async Task<IResult> HandleGetSettings(
+        string netId,
+        HttpRequest request,
+        NetworkRepository repo,
+        ILogger<Program> logger)
+    {
+        var traceId = Guid.NewGuid().ToString("N")[..16];
+
+        var userId = ExtractUserId(request);
+        if (userId is null)
+            return Unauthorized(traceId);
+
+        var network = await repo.GetByIdAsync(netId);
+        if (network is null)
+            return NotFound(traceId, ErrorCodes.NetworkNotFound, "Network not found.");
+
+        var membership = await repo.GetMembershipAsync(netId, userId);
+        if (membership is null)
+            return Forbidden(traceId, ErrorCodes.NotAMember, "You are not a member of this network.");
+
+        var role = await repo.GetRoleAsync(netId, membership.Role);
+        if (role is null || !role.Permissions.HasFlag(Permission.ManageNetwork))
+            return Forbidden(traceId, ErrorCodes.InsufficientPermissions, "You do not have permission to manage this network.");
+
+        var roles = await repo.ListRolesAsync(netId);
+        var pendingCount = await repo.CountPendingApplicationsAsync(netId);
+
+        logger.LogInformation("Network settings retrieved networkId={NetworkId}, userId={UserId}, traceId={TraceId}",
+            netId, userId, traceId);
+
+        return Results.Ok(new NetworkSettingsResponse
+        {
+            Network = MapToResponse(network, membership.Role),
+            Roles = roles.Select(r => new RoleResponse
+            {
+                RoleName = r.RoleName,
+                Permissions = (int)r.Permissions,
+                Description = r.Description,
+            }).ToList(),
+            PendingApplicationCount = pendingCount,
+        });
     }
 
     // ── Helpers ───────────────────────────────────────────────────

@@ -334,6 +334,47 @@ public class NetworkRepository : INetworkRepository
         };
     }
 
+    public async Task<List<NetworkRole>> ListRolesAsync(string networkId)
+    {
+        var request = new QueryRequest
+        {
+            TableName = TableNames.Networks,
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Network}{networkId}"),
+                [":prefix"] = new("ROLE#"),
+            },
+            Limit = 20,
+        };
+
+        var response = await _db.QueryAsync(request);
+        return response.Items.Select(item => new NetworkRole
+        {
+            RoleName = item["RoleName"].S,
+            Permissions = (Permission)int.Parse(item["Permissions"].N),
+            Description = item.TryGetValue("Description", out var desc) ? desc.S : null,
+        }).ToList();
+    }
+
+    public async Task<int> CountPendingApplicationsAsync(string networkId)
+    {
+        var request = new QueryRequest
+        {
+            TableName = TableNames.Networks,
+            IndexName = GsiNames.PendingApps,
+            KeyConditionExpression = "GSI2PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Network}{networkId}#PENDING"),
+            },
+            Select = Select.COUNT,
+        };
+
+        var response = await _db.QueryAsync(request);
+        return response.Count;
+    }
+
     // ── Member count ──────────────────────────────────────────────
 
     public async Task IncrementMemberCountAsync(string networkId)

@@ -77,9 +77,13 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td><MudChip T="string" Size="Size.Small" Color="Color.Primary">steward</MudChip></td><td>Full network management and moderation</td></tr>
-                    <tr><td><MudChip T="string" Size="Size.Small" Color="Color.Default">member</MudChip></td><td>Standard participation and content creation</td></tr>
-                    <tr><td><MudChip T="string" Size="Size.Small" Color="Color.Secondary">associate</MudChip></td><td>Limited access, view-only in some areas</td></tr>
+                    @foreach (var role in _roles)
+                    {
+                        <tr>
+                            <td><MudChip T="string" Size="Size.Small" Color="@(role.RoleName == "steward" ? Color.Primary : role.RoleName == "member" ? Color.Default : Color.Secondary)">@role.RoleName</MudChip></td>
+                            <td>@(role.Description ?? role.RoleName)</td>
+                        </tr>
+                    }
                 </tbody>
             </MudSimpleTable>
         </MudTabPanel>
@@ -152,6 +156,7 @@ else
     private string _editCharter = string.Empty;
 
     private List<ApplicationResponse> _applications = new();
+    private List<RoleResponse> _roles = new();
 
     private bool IsSteward => NetworkState.UserRole is "steward" or "admin";
 
@@ -160,13 +165,26 @@ else
     private async Task LoadAsync()
     {
         _loading = true;
-        _network = await NetworkService.GetNetworkAsync(NetId);
-        if (_network is not null)
+        var settings = await NetworkService.GetSettingsAsync(NetId);
+        if (settings is not null)
         {
+            _network = settings.Network;
             _editName = _network.Name;
             _editDescription = _network.Description ?? string.Empty;
             _editCharter = _network.Charter ?? string.Empty;
+            _roles = settings.Roles;
             await LoadApplicationsAsync();
+        }
+        else
+        {
+            // Fallback to basic network fetch if settings endpoint fails (e.g. non-steward)
+            _network = await NetworkService.GetNetworkAsync(NetId);
+            if (_network is not null)
+            {
+                _editName = _network.Name;
+                _editDescription = _network.Description ?? string.Empty;
+                _editCharter = _network.Charter ?? string.Empty;
+            }
         }
         _loading = false;
     }

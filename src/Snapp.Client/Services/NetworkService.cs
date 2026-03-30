@@ -76,6 +76,18 @@ public class NetworkService : INetworkService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<NetworkSettingsResponse?> GetSettingsAsync(string networkId)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<NetworkSettingsResponse>($"networks/{networkId}/settings");
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
     public async Task<bool> RemoveMemberAsync(string networkId, string userId)
     {
         var response = await _http.DeleteAsync($"networks/{networkId}/members/{userId}");
