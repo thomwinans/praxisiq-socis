@@ -1,0 +1,38 @@
+{
+  "sprint": "S5",
+  "description": "Notifications — Event accumulation, daily digest, notification UI",
+  "tasks": [
+    {
+      "id": "S5-001",
+      "title": "Notification Service — Docker container",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement the Notification Service (M3.5) as specified in SNAPP-TRD.md WU-3.5.\n\nCreate Snapp.Service.Notification with:\n\n1. Endpoints:\n   GET /api/notif — list user notifications (newest first, paginated, includes UnreadCount)\n   POST /api/notif/{notifId}/read — mark single notification read\n   POST /api/notif/read-all — mark all read\n   GET /api/notif/preferences — get digest preferences (or defaults)\n   PUT /api/notif/preferences — save preferences (DigestTime HH:mm, Timezone IANA, ImmediateTypes list)\n\n2. Internal notification creation: other services write NOTIF# items directly to snapp-notif table. This service reads them. Create a shared helper in Snapp.Shared/Hosting/NotificationHelper.cs that other services can use to write notification items consistently.\n\n3. Preferences: stored in snapp-users (NOTIF_PREFS item). Digest queue bucket: DQUEUE#{digestHour} entries for scheduled processing.\n\n4. Immediate delivery: if notification type is in user's ImmediateTypes, decrypt user email from snapp-users PII and send immediately via SMTP.\n\nDockerfile + docker-compose (snapp-notification, port 8087). Kong route: /api/notif/* (JWT required).\n\nIntegration tests: create notification items directly in DynamoDB, verify GET returns them, mark read works, preferences save/load, immediate notification sends email to Papercut.",
+      "done_when": "Notification service runs in Docker. CRUD works. Immediate notifications send via Papercut. Preferences stored. Tests pass."
+    },
+    {
+      "id": "S5-002",
+      "title": "Notification Digest Job",
+      "agent": "bex",
+      "depends_on": ["S5-001"],
+      "prompt": "Implement the Digest Job (M3.6) as specified in SNAPP-TRD.md WU-3.6.\n\nCreate Snapp.Service.DigestJob as a console app / scheduled job:\n\n1. Runs hourly (cron: 0 * * * *). Processes users whose digest is due for the current UTC hour.\n2. Query DQUEUE#{currentHourUTC} → list of userIds\n3. For each user: query undigested notifications (IsDigested=false), skip if none\n4. Group by Category (Referrals, Discussions, Network, Intelligence)\n5. Render HTML email using Razor template (Templates/DigestEmail.cshtml): header, per-category sections, deep links, footer\n6. Decrypt user email from snapp-users PII\n7. Send via SMTP\n8. Mark all included notifications as IsDigested=true\n9. Record DIGEST# sent item\n\nError handling: failed email send → do NOT mark as digested (retry next day). Process users in parallel (batch of 10).\n\nAdd to docker-compose as a one-shot service (or with a simple cron wrapper).\n\nIntegration test: create user with digest preferences, create notification items, run digest job, verify email in Papercut contains all notifications grouped by category, verify items marked as digested.",
+      "done_when": "Digest job runs, groups notifications, renders email, sends to Papercut, marks as digested. Integration test passes."
+    },
+    {
+      "id": "S5-003",
+      "title": "Notification UI",
+      "agent": "frankie",
+      "depends_on": ["S5-001"],
+      "prompt": "Implement notification UI using MudBlazor as specified in SNAPP-TRD.md WU-3.7.\n\n1. Components/Layout/NotificationBell.razor (in MudAppBar):\n   - MudIconButton with MudBadge showing unread count\n   - Polls GET /api/notif?limit=1 every 60s for UnreadCount\n   - Click toggles NotificationDrawer\n\n2. Components/Layout/NotificationDrawer.razor:\n   - MudDrawer Anchor=End (slides from right)\n   - MudList of recent notifications, newest first\n   - Each: MudIcon (by type), MudText title, MudText body preview, relative timestamp\n   - Unread: MudListItem with bold text / MudBadge dot\n   - Click → mark read + NavigateTo source entity\n   - MudButton 'Mark All Read' at top\n   - MudLink 'Digest Preferences' at bottom\n\n3. Pages/Notification/Preferences.razor (/notifications/preferences or within user settings):\n   - MudTimePicker for DigestTime (default 07:00)\n   - MudSelect for Timezone (auto-detect from browser, list of IANA zones)\n   - Per-type MudSwitch toggles: 'Notify immediately for:' — ReferralReceived, MentionInDiscussion, ApplicationDecision, ValuationChanged (all default OFF)\n   - MudButton Save → PUT /api/notif/preferences\n\n4. bUnit tests.",
+      "done_when": "Notification bell shows count. Drawer lists notifications. Mark read works. Preferences page saves. bUnit tests pass."
+    },
+    {
+      "id": "S5-004",
+      "title": "Sprint 5 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S5-001", "S5-002", "S5-003"],
+      "prompt": "Validate Sprint 5. Run all tests. Walkthrough: trigger notifications (create post with @mention, apply to network), verify they appear in notification drawer, run digest job manually, verify digest email in Papercut with correct grouping. Write .claude/reports/sprint-5-validation.md.",
+      "done_when": "All tests pass. Notifications and digest working. Validation report written."
+    }
+  ]
+}

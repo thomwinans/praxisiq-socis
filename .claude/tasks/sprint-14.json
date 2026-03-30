@@ -1,0 +1,30 @@
+{
+  "sprint": "S14",
+  "description": "Enrichment Extended — State licensing, job posting intelligence, guild compensation benchmarks",
+  "tasks": [
+    {
+      "id": "S14-001",
+      "title": "State Licensing and Job Posting Enrichment",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Extend the Enrichment Service with M7.6 (State Licensing) and M7.7 (Job Posting Intelligence).\n\n1. State Licensing loader:\n   - Create fixture data simulating state dental board records (license number, status, issue date, credential type) for 50 providers\n   - Fuzzy match to NPI registry records (name + city matching)\n   - Store as SIGNAL# items with confidence scores\n   - Feed career stage classifier with license issue dates\n\n2. Job Posting loader:\n   - Create fixture data simulating Indeed/specialty board job postings for 20 practices (role, posting date, duration, urgency language, compensation signals)\n   - Extract: posting frequency, role repetition (same role posted 3x = chronic turnover signal), urgency language\n   - Store as SIGNAL# items\n   - Feed workforce pressure scoring\n\nBoth loaders follow the fixture/API pattern from Sprint 8 (IDataProvider interface, fixture implementation for dev).\n\nIntegration tests: load fixtures, verify signals stored, verify career stage and workforce scoring incorporate new signals.",
+      "done_when": "State licensing and job posting fixtures loaded. Signals feed intelligence layer. Tests pass."
+    },
+    {
+      "id": "S14-002",
+      "title": "Guild Compensation Benchmarking",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement Guild-Generated Compensation Benchmarks (M7.8) as specified in SNAPP-TRD.md WU-7.2.\n\nExtend the Intelligence Service with compensation-specific contribution and benchmarking:\n\n1. New contribution category: StaffCompensation\n   - Role (from vertical config role definitions)\n   - Compensation type (hourly/salary/dailyRate)\n   - Amount band (not exact — e.g., $30-35/hr, $35-40/hr)\n   - Benefits included (boolean flags)\n\n2. Compensation benchmark computation:\n   - Aggregate anonymously by role × market × practice size\n   - Compute P25/P50/P75 per role per cohort\n   - Store as COHORT# METRIC#COMP#{role} items\n   - Anonymity threshold: ≥5 contributors\n\n3. Compensation intelligence output:\n   - 'Practices in your market with your revenue profile pay [role] between $X and $Y'\n\n4. Add compensation section to the benchmarking UI (extend /intelligence/benchmark page with a 'Compensation' MudTab)\n\nIntegration tests: 5+ users contribute compensation data, verify benchmarks computed, verify anonymity threshold, verify formatted output.",
+      "done_when": "Compensation contribution and benchmarking works. Anonymized peer benchmarks. UI shows compensation tab. Tests pass."
+    },
+    {
+      "id": "S14-003",
+      "title": "Sprint 14 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S14-001", "S14-002"],
+      "prompt": "Validate Sprint 14. Run all tests. Verify enriched intelligence includes licensing and job posting signals. Verify compensation benchmarks display. Write .claude/reports/sprint-14-validation.md.",
+      "done_when": "All tests pass. Extended enrichment and compensation benchmarks work. Validation report written."
+    }
+  ]
+}

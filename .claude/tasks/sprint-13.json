@@ -1,0 +1,30 @@
+{
+  "sprint": "S13",
+  "description": "Deal Room — Secure document sharing for M&A/succession",
+  "tasks": [
+    {
+      "id": "S13-001",
+      "title": "Deal Room Service",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement Deal Room (M5.5) in the Transaction Service as specified in SNAPP-TRD.md WU-5.5.\n\nAdd endpoints:\n  POST /api/tx/deals — create deal room (DEAL# META item)\n  GET /api/tx/deals — list user's deal rooms\n  GET /api/tx/deals/{dealId} — get detail (participant only)\n  POST /api/tx/deals/{dealId}/participants — add participant (seller/buyer/advisor role)\n  DELETE /api/tx/deals/{dealId}/participants/{userId} — remove\n  POST /api/tx/deals/{dealId}/documents — generate pre-signed S3 upload URL for direct upload\n  GET /api/tx/deals/{dealId}/documents — list documents\n  GET /api/tx/deals/{dealId}/documents/{docId}/url — generate pre-signed download URL\n  GET /api/tx/deals/{dealId}/audit — audit trail\n\nS3/MinIO: documents stored under deals/{dealId}/ prefix. Pre-signed URLs for direct client upload/download (no file data through the API).\nAudit: every action logged as AUDIT# items in snapp-tx.\nAccess control: only participants can access. Removing a participant immediately revokes.\n\nIntegration tests: create deal room, add participants, upload document (via pre-signed URL to MinIO), list documents, download, verify audit trail, verify non-participant blocked.",
+      "done_when": "Deal room CRUD works. Document upload/download via pre-signed URLs to MinIO. Audit trail. Access control. Tests pass."
+    },
+    {
+      "id": "S13-002",
+      "title": "Deal Room UI",
+      "agent": "frankie",
+      "depends_on": ["S13-001"],
+      "prompt": "Implement Deal Room UI using MudBlazor as specified in M5.6.\n\n1. Pages/DealRoom/List.razor (/deals):\n   - MudTable of user's deal rooms: name, status MudChip, participant count, document count, created date\n   - MudButton 'Create Deal Room'\n\n2. Pages/DealRoom/View.razor (/deals/{dealId}):\n   - MudTabs: Overview | Documents | Participants | Activity\n   - Overview: MudCard with deal name, status, creation date\n   - Documents: MudTable (filename, uploaded by, date, size), MudButton 'Upload Document' → MudFileUpload component that gets pre-signed URL and uploads directly to MinIO/S3\n   - Participants: MudList with MudChip roles (Seller/Buyer/Advisor), MudButton 'Add Participant' (MudDialog with user search + role selector)\n   - Activity: MudTimeline of audit log entries\n\n3. MudFileUpload integration: get pre-signed URL from API, upload file directly to S3/MinIO from browser, notify API of completion.\n\n4. bUnit tests.",
+      "done_when": "Deal room list, detail with tabs, document upload/download, participant management, audit timeline. bUnit tests pass."
+    },
+    {
+      "id": "S13-003",
+      "title": "Sprint 13 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S13-001", "S13-002"],
+      "prompt": "Validate Sprint 13. Run all tests. Walkthrough: create deal room, add participants, upload document, download document, verify audit trail, verify access control. Write .claude/reports/sprint-13-validation.md.",
+      "done_when": "All tests pass. Deal room functional. Validation report written."
+    }
+  ]
+}

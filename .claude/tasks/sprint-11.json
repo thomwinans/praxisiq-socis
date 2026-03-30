@@ -1,0 +1,38 @@
+{
+  "sprint": "S11",
+  "description": "Transactions — Referrals, reputation, referral UI, reputation UI",
+  "tasks": [
+    {
+      "id": "S11-001",
+      "title": "Transaction Service — Referrals and Reputation",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement the Transaction Service covering M5.1 (Referrals) and M5.2 (Reputation) as specified in SNAPP-TRD.md.\n\nCreate Snapp.Service.Transaction with:\n\nReferral endpoints:\n  POST /api/tx/referrals — create referral (verify both users are network members, create REF# + UREF# sender/receiver indexes, queue notification)\n  GET /api/tx/referrals/sent — user's sent referrals (paginated)\n  GET /api/tx/referrals/received — user's received referrals (paginated)\n  PUT /api/tx/referrals/{refId}/status — update status (validate transitions: Created→Accepted→Completed, any→Expired)\n  POST /api/tx/referrals/{refId}/outcome — record outcome (success bool, description, trigger reputation recomputation)\n\nReputation endpoints:\n  GET /api/tx/reputation/{userId} — current reputation scores\n  GET /api/tx/reputation/{userId}/history — for trending\n  POST /api/tx/attestations — peer attestation (cannot self-attest, must share network)\n\nReputation computation (triggered by referral outcome or attestation):\n  ReferralScore (40%): f(successful_referrals, recency)\n  ContributionScore (30%): f(data_categories_contributed, discussion_posts)\n  AttestationScore (30%): f(attestation_count, attestor_reputation_weight)\n  Decay: 5% per month of inactivity\n  Anti-gaming: detect reciprocal attestation rings (flag, don't auto-reject)\n\nDockerfile + docker-compose (snapp-transaction, port 8086). Kong route: /api/tx/*.\n\nIntegration tests: create referral, track status, record outcome, verify reputation computation, verify attestation, verify anti-gaming detection.",
+      "done_when": "Transaction service runs. Referrals tracked with lifecycle. Reputation computed from actual transactions. Tests pass."
+    },
+    {
+      "id": "S11-002",
+      "title": "Referral UI",
+      "agent": "frankie",
+      "depends_on": ["S11-001"],
+      "prompt": "Implement referral UI using MudBlazor as specified in M5.3.\n\n1. Pages/Referrals/List.razor (/referrals):\n   - MudTabs: Sent | Received\n   - MudList of ReferralCard components\n   - MudButton 'New Referral'\n\n2. Pages/Referrals/Create.razor:\n   - MudDialog or page: MudSelect Network, MudAutocomplete Receiver (search network members), MudTextField Specialty, MudTextArea Notes\n   - Submit → POST /api/tx/referrals\n\n3. Components/Transaction/ReferralCard.razor:\n   - MudCard: sender/receiver names, specialty, MudChip status badge (Created=Info, Accepted=Warning, Completed=Success, Expired=Default)\n   - MudExpansionPanel for details: notes, outcome\n   - MudButton actions: Accept (receiver), Record Outcome (either party)\n\n4. bUnit tests.",
+      "done_when": "Referral list, create, status updates, outcome recording all work with MudBlazor. bUnit tests pass."
+    },
+    {
+      "id": "S11-003",
+      "title": "Reputation UI",
+      "agent": "frankie",
+      "depends_on": ["S11-001"],
+      "prompt": "Implement reputation UI using MudBlazor as specified in M5.4.\n\n1. Components/Transaction/ReputationBadge.razor:\n   - Compact MudChip: score (0-100) with color gradient (red→yellow→green)\n   - MudTooltip: breakdown of three sub-scores\n   - Used in ProfileCard, member lists, referral cards\n\n2. Pages/Profile/ReputationDetail.razor (or section within profile):\n   - Three MudProgressLinear bars: Referral, Contribution, Attestation scores\n   - MudChart Type=Line: OverallScore history\n   - MudList: recent attestations received\n   - MudButton 'Request Attestation' (generates a link/request to a peer)\n\n3. Integrate ReputationBadge into existing ProfileCard component.\n\n4. bUnit tests.",
+      "done_when": "Reputation badge renders in profiles. Detail page shows breakdown and history. bUnit tests pass."
+    },
+    {
+      "id": "S11-004",
+      "title": "Sprint 11 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S11-002", "S11-003"],
+      "prompt": "Validate Sprint 11. Run all tests. Walkthrough: create referral between two users, accept, record outcome, verify reputation scores update, view reputation on profiles. Write .claude/reports/sprint-11-validation.md.",
+      "done_when": "All tests pass. Referral and reputation system works end-to-end. Validation report written."
+    }
+  ]
+}

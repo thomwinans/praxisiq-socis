@@ -1,0 +1,30 @@
+{
+  "sprint": "S3",
+  "description": "Networks — Create, join, and govern praxisiq networks with roles and membership",
+  "tasks": [
+    {
+      "id": "S3-001",
+      "title": "Network Service — Docker container",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement the Network Service as specified in SNAPP-TRD.md WU-2.1 and WU-2.2 (M2.1 + M2.2).\n\nCreate Snapp.Service.Network with:\n\n1. Program.cs: Minimal API, DI, dual-host, OpenAPI (same pattern as auth/user services)\n\n2. Endpoints/NetworkEndpoints.cs — all with OpenAPI metadata:\n   POST /api/networks — create network (generates ULID, creates META + default roles steward/member/associate, adds creator as steward, creates inverse UMEM# entry)\n   GET /api/networks — list all networks (paginated), indicate user's membership status\n   GET /api/networks/{netId} — get network detail with user's role if member\n   PUT /api/networks/{netId} — update network (steward only)\n   GET /api/networks/{netId}/members — list members (must be member, paginated)\n   GET /api/networks/mine — list user's networks (query UMEM# items)\n\n3. Endpoints/MembershipEndpoints.cs:\n   POST /api/networks/{netId}/apply — submit application (creates APP# item, queues notification for stewards)\n   GET /api/networks/{netId}/applications — list pending (steward/reviewer only, query GSI-PendingApps)\n   POST /api/networks/{netId}/applications/{userId}/decide — approve/deny (on approve: create MEMBER# + UMEM# + increment count + notify; on deny: notify)\n   POST /api/networks/{netId}/invite — direct invite (steward only, skip application)\n\n4. Repositories/NetworkRepository.cs implementing INetworkRepository — all DynamoDB operations against snapp-networks table\n\n5. Permission checking: verify caller's role has required Permission flags before allowing action\n\n6. Dockerfile + add to docker-compose.yml as snapp-network (port 8083)\n7. Update Kong config: route /api/networks/* → snapp-network:8080 (JWT required)\n\n8. Integration tests in test/Snapp.Service.Network.Tests/:\n   - Create network → creator is steward with all permissions\n   - Default roles created (steward, member, associate)\n   - Apply → application in pending queue\n   - Approve → user becomes member, count incremented, notification queued\n   - Deny → user not added\n   - Non-steward cannot approve/deny\n   - Non-member cannot see member list\n   - Invite bypasses application\n   - /mine returns only user's networks\n\nTests must authenticate via real auth flow (magic link through Papercut).",
+      "done_when": "Network service runs in Docker. Create/join/manage networks through Kong. Membership workflow works. Integration tests pass."
+    },
+    {
+      "id": "S3-002",
+      "title": "Network UI — Directory, creation wizard, members, settings",
+      "agent": "frankie",
+      "depends_on": ["S3-001"],
+      "prompt": "Implement all network UI pages using MudBlazor as specified in SNAPP-TRD.md WU-2.3.\n\n1. Pages/Network/Directory.razor (/networks):\n   - MudDataGrid or MudTable of available networks\n   - Each row: name, description preview, MudChip member count, status badge (Member/Applied/Join)\n   - MudButton 'Create Network' → /networks/create\n   - MudTextField search filter\n\n2. Pages/Network/Create.razor (/networks/create):\n   - MudStepper:\n     Step 1: MudTextField Name [Required] + MudTextField Description\n     Step 2: MudTextArea Charter\n     Step 3: MudSelect Template (General/Custom) — for future vertical config\n   - On submit: POST /api/networks → NavigateTo(/networks/{newId})\n\n3. Pages/Network/Home.razor (/networks/{netId}):\n   - MudCard dashboard: member count, recent activity summary\n   - MudButton quick links: Feed, Discussions, Members\n   - If steward: MudBadge with pending application count\n\n4. Pages/Network/Members.razor (/networks/{netId}/members):\n   - MudDataGrid of ProfileCards with MudChip role badges\n   - MudTextField search by name\n   - Steward actions: MudMenu per member (Change Role, Remove)\n\n5. Pages/Network/Settings.razor (/networks/{netId}/settings):\n   - Only renders for stewards (check role)\n   - MudTabs: General (name/desc/charter edit), Roles (manage definitions), Applications (review queue)\n   - Applications tab: MudList of pending apps with Approve/Deny MudButtons\n\n6. Apply flow: MudDialog modal with MudTextArea for application text, submit → MudAlert success\n\n7. Update left sidebar (MainLayout MudDrawer):\n   - MudSelect for network switching (user's networks from /api/networks/mine)\n   - MudNavMenu links update based on selected network\n   - Store selected network in NetworkState\n\n8. bUnit tests for all components.\n\nTest manually: create network, invite/apply a second user, approve, see them in member list.",
+      "done_when": "Network directory, creation wizard, member list, settings page all functional with MudBlazor. Sidebar network switcher works. bUnit tests pass."
+    },
+    {
+      "id": "S3-003",
+      "title": "Sprint 3 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S3-001", "S3-002"],
+      "prompt": "Validate Sprint 3 end-to-end.\n\n1. Run `scripts/start-and-test.sh`\n2. Run all test suites: Shared, Auth, User, Network, Client\n3. Integration test walkthrough:\n   a. Login as User A (magic link flow)\n   b. Create network 'Test Guild'\n   c. Verify User A is steward\n   d. Login as User B (different email)\n   e. User B applies to 'Test Guild'\n   f. Login as User A, approve application\n   g. Verify User B appears in member list\n   h. User B cannot access settings (not steward)\n4. Write validation report to .claude/reports/sprint-3-validation.md\n5. Commit all fixes.",
+      "done_when": "All tests pass. Two-user network creation/joining verified. Validation report written."
+    }
+  ]
+}

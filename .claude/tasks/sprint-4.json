@@ -1,0 +1,38 @@
+{
+  "sprint": "S4",
+  "description": "Communication — Threaded discussions and network feed",
+  "tasks": [
+    {
+      "id": "S4-001",
+      "title": "Content Service — Discussions and Feed in Docker",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement the Content Service (M3.1 + M3.2) as specified in SNAPP-TRD.md WU-3.1 and WU-3.2.\n\nCreate Snapp.Service.Content with both discussion and feed endpoints:\n\nDiscussion endpoints:\n  POST /api/content/networks/{netId}/threads — create thread (verify membership + CreatePost permission, create DISC# + initial REPLY#)\n  GET /api/content/networks/{netId}/threads — list threads (newest first, paginated)\n  GET /api/content/threads/{threadId} — get thread detail\n  POST /api/content/threads/{threadId}/replies — add reply (update ReplyCount + LastReplyAt, detect @mentions → queue notification)\n  GET /api/content/threads/{threadId}/replies — list replies (chronological, paginated)\n  DELETE /api/content/threads/{threadId}/replies/{replyId} — soft-delete (author or moderator only)\n\nFeed endpoints:\n  POST /api/content/networks/{netId}/posts — create post (FEED# + UPOST# items)\n  GET /api/content/networks/{netId}/feed — network feed (newest first, paginated)\n  GET /api/content/users/{userId}/posts — user's post history\n  POST /api/content/posts/{postId}/react — add/update reaction (REACT# item, atomic increment on post)\n  DELETE /api/content/posts/{postId}/react — remove reaction (decrement)\n\nRepository: ContentRepository implementing IContentRepository against snapp-content table.\nDockerfile + docker-compose (snapp-content, port 8084). Kong route: /api/content/* (JWT required).\n\nIntegration tests: create thread, reply, list; create post, react, list feed; verify non-member access blocked; verify @mention notification written to snapp-notif table.",
+      "done_when": "Content service runs in Docker. Threads, replies, posts, reactions all work through Kong. Integration tests pass."
+    },
+    {
+      "id": "S4-002",
+      "title": "Discussion UI",
+      "agent": "frankie",
+      "depends_on": ["S4-001"],
+      "prompt": "Implement discussion pages using MudBlazor as specified in SNAPP-TRD.md WU-3.3.\n\n1. Pages/Discussion/List.razor (/networks/{netId}/discuss):\n   - MudList of threads: MudListItem with title, author name, MudBadge reply count, 'last reply X ago'\n   - MudButton 'New Thread' → opens MudDialog\n   - Sorted by LastReplyAt (most recently active first)\n   - MudButton 'Load More' with NextToken pagination\n\n2. Pages/Discussion/View.razor (/networks/{netId}/discuss/{threadId}):\n   - Thread title (MudText Typo.H5) + original post at top\n   - MudDivider\n   - Replies: MudList, each reply has mini ProfileCard (MudAvatar + name), content (markdown rendered via Markdig → MarkupString), timestamp\n   - Own replies: MudIconButton delete\n   - Reply composer at bottom: MudTextField multiline + MudButton 'Reply'\n\n3. Components/Discussion/CreateThreadDialog.razor:\n   - MudDialog with MudTextField Title + MudTextField Content (multiline)\n   - Submit → POST creates thread, closes dialog, navigates to thread view\n\n4. Components/Discussion/ReplyComposer.razor:\n   - MudTextField multiline with MudButton Submit\n   - Shift+Enter for newline hint text\n\n5. bUnit tests for all components.",
+      "done_when": "Thread list, thread view, reply composer all functional. Markdown renders. bUnit tests pass."
+    },
+    {
+      "id": "S4-003",
+      "title": "Feed UI",
+      "agent": "frankie",
+      "depends_on": ["S4-001"],
+      "prompt": "Implement feed pages using MudBlazor as specified in SNAPP-TRD.md WU-3.4.\n\n1. Pages/Feed/NetworkFeed.razor (/networks/{netId}/feed):\n   - Post composer at top: MudCard with MudTextField (auto-grow), MudSelect PostType (Text/Milestone), character count, MudButton 'Post'\n   - Feed items below using PostCard component\n   - Infinite scroll or MudButton 'Load More'\n\n2. Components/Feed/PostCard.razor:\n   - MudCard with:\n     - MudCardHeader: MudAvatar + author name (link to profile) + relative timestamp\n     - MudCardContent: markdown rendered via Markdig → MarkupString\n     - MudCardActions: MudIconButton for each reaction (like/insightful/support) with MudBadge count, highlight user's current reaction\n\n3. Components/Feed/PostComposer.razor:\n   - MudTextField multiline with character count (max 5000)\n   - MudSelect for post type\n   - MudButton Submit\n   - 'Posting to: {NetworkName}' MudText subtitle\n\n4. Add Markdig NuGet package to Snapp.Client for markdown rendering.\n\n5. bUnit tests.",
+      "done_when": "Feed displays posts. Composer creates posts. Reactions toggle. Markdown renders. bUnit tests pass."
+    },
+    {
+      "id": "S4-004",
+      "title": "Sprint 4 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S4-001", "S4-002", "S4-003"],
+      "prompt": "Validate Sprint 4. Run all tests. Walkthrough: login, select network, create thread, reply, create post, react. Verify non-members blocked. Write .claude/reports/sprint-4-validation.md.",
+      "done_when": "All tests pass. Discussion and feed functional. Validation report written."
+    }
+  ]
+}

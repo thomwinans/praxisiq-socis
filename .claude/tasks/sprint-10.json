@@ -1,0 +1,38 @@
+{
+  "sprint": "S10",
+  "description": "SurveyIQ Integration — Gap detection, survey assembly, unlock engine, question UI",
+  "tasks": [
+    {
+      "id": "S10-001",
+      "title": "Gap Detection and Survey Assembly Service",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement Gap Detection & Survey Assembly (M4.10) in the Intelligence Service.\n\nNote: SurveyIQ is an external service. For local development, mock the SurveyIQ API with a simple stub that returns predefined survey structures.\n\nAdd endpoints:\n  GET /api/intel/questions — get pending questions for current user (max 3). The gap detection logic:\n    1. Analyze user's intelligence profile for gaps (missing data categories, unconfirmed public signals, low-confidence items)\n    2. Prioritize by: gap_weight × answer_ease × unlock_value\n    3. Generate question objects: type (confirm_data/confirm_relationship/estimate_value), prompt text, choices, unlock description\n    4. Store as QPEND# items in snapp-intel\n    5. Return top 3 by priority\n\n  POST /api/intel/questions/{questionId}/answer — record answer. Store QANS# item. Trigger unlock processing.\n\n  GET /api/intel/questions/progression — get progression stats (total answered, total unlocks, streak, last answered)\n\nFor now, generate questions locally (no actual SurveyIQ call). The question types:\n- confirm_data: 'We see you're at {address} — is this current?' (Boolean)\n- confirm_relationship: 'Do you know {name}, who practices nearby?' (Boolean)\n- estimate_value: 'Is your annual revenue closer to...' (SingleChoice with bands)\n\nIntegration tests: create user with intelligence gaps, verify questions generated, answer questions, verify progression updates.",
+      "done_when": "Gap detection generates relevant questions. Answers recorded. Progression tracked. Tests pass."
+    },
+    {
+      "id": "S10-002",
+      "title": "Unlock Engine",
+      "agent": "bex",
+      "depends_on": ["S10-001"],
+      "prompt": "Implement the Unlock Engine (M4.11) in the Intelligence Service.\n\nWhen a question is answered (triggered by POST /api/intel/questions/{id}/answer):\n\n1. Map the answer to intelligence rewards based on question type:\n   - confirm_data (address confirmed): unlock market profile for that geography → create/update MKT# access, store UNLOCK# record\n   - confirm_relationship (knows person): add relationship edge (store in snapp-tx as a lightweight connection record), store UNLOCK# record\n   - estimate_value (revenue band selected): update PDATA# with new data, recompute confidence, unlock the cohort benchmark for that band → store UNLOCK# record\n\n2. Each unlock produces:\n   - UNLOCK# record in snapp-intel: type, description, intelligence revealed\n   - Updated confidence score\n   - Update PROG# progression (increment counters, update streak)\n\n3. Return the unlock details in the answer response so the UI can show immediate feedback.\n\nIntegration tests: answer each question type, verify corresponding unlock created, verify confidence increased, verify progression updated.",
+      "done_when": "Unlocks fire on each answer type. Confidence increases. Progression tracks. Tests pass."
+    },
+    {
+      "id": "S10-003",
+      "title": "Question UI and Progression",
+      "agent": "frankie",
+      "depends_on": ["S10-001", "S10-002"],
+      "prompt": "Implement Question UI (M4.12) using MudBlazor.\n\n1. Components/Intelligence/QuestionCard.razor:\n   - MudCard with subtle highlight border\n   - MudCardHeader: MudIcon Lightbulb + 'Quick question to unlock insights'\n   - MudCardContent: MudText with question prompt\n   - For Boolean: MudButtonGroup (Yes/No)\n   - For SingleChoice: MudRadioGroup with choices\n   - MudCardActions: MudButton 'Answer' + MudButton Variant=Text 'Skip'\n   - On answer: MudAlert Severity=Success with unlock description, animate in\n\n2. Embed QuestionCard in Dashboard (/intelligence):\n   - Show top question card below the hero section if pending questions exist\n   - After answering, fade out card, show next question or 'All caught up!' message\n\n3. Components/Intelligence/ProgressionIndicator.razor:\n   - MudChip group: '{N} insights unlocked' + '{N} day streak'\n   - Placed in dashboard header area\n   - MudTooltip with breakdown\n\n4. Update notification digest template to include one question (if pending) with clickable answer links (signed URLs that call the answer endpoint directly).\n\n5. bUnit tests.",
+      "done_when": "Question cards render in dashboard. Answering shows unlock feedback. Progression indicator works. bUnit tests pass."
+    },
+    {
+      "id": "S10-004",
+      "title": "Sprint 10 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S10-003"],
+      "prompt": "Validate Sprint 10. Run all tests. Walkthrough: view dashboard with question card, answer questions of each type, verify unlocks appear, verify progression increments, verify confidence score rises. Write .claude/reports/sprint-10-validation.md.",
+      "done_when": "All tests pass. Gamified question flow works end-to-end. Validation report written."
+    }
+  ]
+}

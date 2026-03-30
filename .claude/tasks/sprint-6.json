@@ -1,0 +1,38 @@
+{
+  "sprint": "S6",
+  "description": "Intelligence Core — Data contribution, scoring engine, benchmark engine, dashboard and benchmarking UI",
+  "tasks": [
+    {
+      "id": "S6-001",
+      "title": "Intelligence Service — Data contribution and scoring engine",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement the Intelligence Service covering M4.1 (Data Contribution) and M4.2 (Scoring Engine) as specified in SNAPP-TRD.md.\n\nCreate Snapp.Service.Intelligence with:\n\n1. Data Contribution Endpoints:\n   POST /api/intel/contribute — submit practice data by dimension. Category validation against Vertical Configuration Pack (for now, load a default dental config from a JSON file in the service). Store PDATA# items in snapp-intel. Calculate per-category ConfidenceContribution from config weights. Recalculate total confidence.\n   GET /api/intel/contributions — list user's contributed categories\n   GET /api/intel/dashboard — build dashboard: KPIs from available data, confidence score, valuation summary if exists\n\n2. Scoring Engine:\n   POST /api/intel/score/compute — compute multi-dimensional score for current user. Evaluate 6 dimensions (Financial Health, Owner Risk, Operations, Client Base, Revenue Diversification, Market Position). Each dimension scored 0-100 based on available signals + contributed data. Produce composite score + confidence level (high/medium/low). Store SCORE# items.\n   GET /api/intel/score — get current scoring profile\n   GET /api/intel/score/history — get scoring history for trending\n\n3. Benchmark Engine:\n   GET /api/intel/benchmarks?specialty={}&geo={}&size={} — get benchmarks for cohort. Return P25/P50/P75 + user's percentile.\n   Internal: benchmark recomputation triggered when new data contributed (if cohort has ≥5 contributors). Store BENCH# and COHORT# items.\n\n4. Vertical Configuration: load from src/Snapp.Service.Intelligence/Config/dental-default.json. Define scoring dimensions, weights, thresholds, KPI definitions, and contribution categories for the dental vertical. The config format must be generalizable — other verticals add their own JSON file.\n\n5. Repository: IntelligenceRepository against snapp-intel table.\n6. Dockerfile + docker-compose (snapp-intelligence, port 8085). Kong route: /api/intel/*.\n\nIntegration tests: contribute data, verify confidence increases, compute score, verify dimensions, benchmark with ≥5 contributors, verify anonymity threshold.",
+      "done_when": "Intelligence service runs in Docker. Data contribution, scoring, benchmarking all work. Vertical config loaded. Tests pass."
+    },
+    {
+      "id": "S6-002",
+      "title": "Practice Dashboard UI",
+      "agent": "frankie",
+      "depends_on": ["S6-001"],
+      "prompt": "Implement the practice intelligence dashboard using MudBlazor as specified in SNAPP-TRD.md M4.7.\n\n1. Pages/Intelligence/Dashboard.razor (/intelligence):\n   - Hero: MudPaper with valuation range card (Downside — **Base** — Upside) if available, or MudAlert prompting first contribution\n   - MudGrid layout:\n     - MudItem xs=12 md=6: MudChart Type=Donut or radar visualization of 6 scoring dimensions\n     - MudItem xs=12 md=6: MudSimpleTable KPI grid (name, value, trend MudIcon, percentile)\n     - MudItem xs=12 md=4: MudCard confidence bar (Components/Intelligence/ConfidenceBar.razor)\n     - MudItem xs=12 md=4: MudCard career stage indicator (placeholder for S7)\n     - MudItem xs=12 md=4: MudCard risk flags (placeholder for S7)\n   - MudButton 'Contribute Data' if confidence < 65%\n   - MudLink 'View Benchmarks' → /intelligence/benchmark\n\n2. Pages/Intelligence/Contribute.razor (/intelligence/contribute):\n   - MudTabs for categories (from vertical config)\n   - Dynamic form rendering per category (MudSelect for bands, MudSlider for percentages, MudNumericField for counts)\n   - Submit → POST /api/intel/contribute\n   - MudAlert showing confidence improvement: '+{N}% confidence'\n\n3. Components/Intelligence/ConfidenceBar.razor:\n   - MudProgressLinear segmented by tier: 0-40% Error, 40-65% Warning, 65-85% Info, 85-100% Success\n   - MudText with current score and tier label\n\n4. Components/Intelligence/KpiCard.razor:\n   - Value + unit (MudText Typo.H4), trend MudIcon (ArrowUpward green / ArrowDownward red / Remove gray), percentile MudProgressLinear if benchmark available\n\n5. bUnit tests.",
+      "done_when": "Dashboard renders scoring radar, KPIs, confidence bar. Contribution form works dynamically from config. bUnit tests pass."
+    },
+    {
+      "id": "S6-003",
+      "title": "Benchmarking UI",
+      "agent": "frankie",
+      "depends_on": ["S6-001"],
+      "prompt": "Implement benchmarking visualization using MudBlazor as specified in M4.8.\n\n1. Pages/Intelligence/Benchmark.razor (/intelligence/benchmark):\n   - Cohort selector: MudSelect Specialty, MudSelect Geography, MudSelect Size Band\n   - MudText 'Comparing against {N} peers' (sample size)\n   - MudTable with columns: Metric Name, Your Value, P25, P50, P75, Your Percentile\n   - Color-coded rows: MudTableRow Class based on position (below P25 = error color, P25-P50 = warning, above P50 = success)\n   - MudAlert Severity=Info if sample < 5: 'Not enough data in this cohort yet'\n\n2. Components/Intelligence/PercentileBar.razor:\n   - Horizontal MudProgressLinear with P25/P50/P75 markers\n   - User's position as a colored dot overlay\n   - MudTooltip showing exact percentile\n\n3. bUnit tests.",
+      "done_when": "Benchmark page renders with cohort selection, table, percentile bars. bUnit tests pass."
+    },
+    {
+      "id": "S6-004",
+      "title": "Sprint 6 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S6-001", "S6-002", "S6-003"],
+      "prompt": "Validate Sprint 6. Run all tests. Walkthrough: contribute practice data across multiple categories, watch confidence score increase, view scoring radar chart, view benchmarks with cohort comparison. Write .claude/reports/sprint-6-validation.md.",
+      "done_when": "All tests pass. Intelligence layer functional. Validation report written."
+    }
+  ]
+}

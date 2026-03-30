@@ -1,0 +1,30 @@
+{
+  "sprint": "S12",
+  "description": "LinkedIn Integration — OAuth, profile enrichment, cross-posting",
+  "tasks": [
+    {
+      "id": "S12-001",
+      "title": "LinkedIn Service — OAuth and Share",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement the LinkedIn Service (M6.1 + M6.2) as specified in SNAPP-TRD.md.\n\nCreate Snapp.Service.LinkedIn with:\n\n1. OAuth endpoints:\n   GET /api/linkedin/auth-url — generate LinkedIn OAuth 2.0 authorization URL (client_id, redirect_uri, scope: openid profile email w_member_social, state: CSRF token)\n   POST /api/linkedin/callback — exchange code for token, fetch profile (userinfo endpoint), encrypt LinkedIn access token + URN, store in snapp-users LINKEDIN item, update profile completeness (+15%)\n   GET /api/linkedin/status — return link status, name, token expiry\n   POST /api/linkedin/unlink — delete LINKEDIN item\n\n2. Share endpoints:\n   POST /api/linkedin/share — format content as LinkedIn post, publish via Share API (w_member_social), append '— via PraxisIQ {deeplink}', rate limit 25/day/user\n\n3. For local dev/testing: mock the LinkedIn API. Create a MockLinkedInClient that returns synthetic profile data and logs share requests instead of hitting real LinkedIn. Use ILinkedInClient interface so the real implementation can be swapped in for production.\n\nDockerfile + docker-compose (snapp-linkedin, port 8088). Kong route: /api/linkedin/*.\n\nIntegration tests: OAuth flow with mock, verify encrypted token stored, verify profile enrichment, verify share (mock), verify rate limiting.",
+      "done_when": "LinkedIn service runs with mock client. OAuth flow works. Share works (mocked). Token encrypted. Tests pass."
+    },
+    {
+      "id": "S12-002",
+      "title": "LinkedIn UI",
+      "agent": "frankie",
+      "depends_on": ["S12-001"],
+      "prompt": "Implement LinkedIn UI using MudBlazor as specified in M6.3.\n\n1. Components/LinkedIn/LinkButton.razor:\n   - If not linked: MudButton 'Connect LinkedIn' with LinkedIn icon → redirect to OAuth URL\n   - If linked: MudChip 'LinkedIn Connected' with checkmark, MudButton Variant=Text 'Unlink'\n\n2. Components/LinkedIn/CrossPostToggle.razor:\n   - MudSwitch 'Also share on LinkedIn' in post composer\n   - Only visible if LinkedIn is linked\n   - When enabled + post submitted: call /api/linkedin/share after post creation\n   - MudIcon LinkedIn logo indicator\n\n3. Update onboarding Step 3: wire the 'Link your LinkedIn' button to actual OAuth flow\n4. Update profile page: show LinkedIn link status\n5. Update PostComposer: include CrossPostToggle\n\n6. bUnit tests.",
+      "done_when": "LinkedIn link/unlink works. Cross-post toggle in post composer. Onboarding wired. bUnit tests pass."
+    },
+    {
+      "id": "S12-003",
+      "title": "Sprint 12 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S12-001", "S12-002"],
+      "prompt": "Validate Sprint 12. Run all tests. Walkthrough: link LinkedIn (mock OAuth), verify profile enrichment, create post with cross-post toggle, verify share logged (mock). Write .claude/reports/sprint-12-validation.md.",
+      "done_when": "All tests pass. LinkedIn integration works with mock. Validation report written."
+    }
+  ]
+}

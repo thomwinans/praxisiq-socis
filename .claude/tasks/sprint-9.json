@@ -1,0 +1,30 @@
+{
+  "sprint": "S9",
+  "description": "Enrichment Data — Regulatory data, association benchmarks, business listing integration",
+  "tasks": [
+    {
+      "id": "S9-001",
+      "title": "Association Benchmark Data loader",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Extend the Enrichment Service with Association & Industry Benchmark Data loading (M7.3).\n\nAdd a benchmark data loader that:\n1. Reads industry benchmark fixture data from JSON files (src/Snapp.Service.Enrichment/Fixtures/benchmarks/)\n2. Creates fixture files with realistic dental benchmark data: practice revenue quartiles by specialty/geography/size, staff compensation ranges by role, overhead ratios, production metrics\n3. Loads into snapp-intel as BENCH# and COHORT# items\n4. These benchmarks calibrate the scoring engine thresholds (the scoring engine should now use these as the baseline instead of hardcoded values)\n\nAlso add a regulatory data loader (M7.2): create fixture with synthetic CMS-like data (prescribing volumes, graduation years, patient demographics) for the test provider set. Store as SIGNAL# items.\n\nIntegration tests: load benchmark fixtures, verify scoring engine uses them for calibration, verify benchmark API returns loaded data.",
+      "done_when": "Benchmark fixtures loaded. Scoring engine calibrated from benchmark data. Tests pass."
+    },
+    {
+      "id": "S9-002",
+      "title": "Business Listing Integration",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Extend the Enrichment Service with Business Listing Integration (M7.4).\n\nAdd a business listing loader that:\n1. For local dev: reads from fixture file with synthetic Google Places-like data (name, address, rating, review count, website URL) for 50-100 test practices\n2. Multi-pass matching to provider registry records: phone exact (confidence 1.0) → address exact (0.8) → name+city fuzzy (0.5-0.7)\n3. Stores matched listings as SIGNAL# items with confidence scores\n4. Reputation signals (rating ≥ 4.5 AND reviews ≥ 100 = strong-online-reputation flag)\n\nFor future production: stub out a GooglePlacesClient that would hit the real API (behind IBusinessListingProvider interface).\n\nIntegration tests: load fixture, verify matching, verify confidence scores, verify reputation flag.",
+      "done_when": "Business listing fixtures matched to providers. Confidence-scored reputation signals stored. Tests pass."
+    },
+    {
+      "id": "S9-003",
+      "title": "Sprint 9 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S9-001", "S9-002"],
+      "prompt": "Validate Sprint 9. Run full enrichment pipeline (registry + benchmarks + listings), verify intelligence dashboard shows richer data (benchmarks calibrated, reputation signals visible). Run all tests. Write .claude/reports/sprint-9-validation.md.",
+      "done_when": "Full enrichment pipeline works. Intelligence layer enriched. All tests pass. Validation report written."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "sprint": "S16",
+  "description": "AWS Deployment — Pulumi infrastructure, API Gateway authorizer, production readiness",
+  "tasks": [
+    {
+      "id": "S16-001",
+      "title": "Pulumi AWS Infrastructure Stacks",
+      "agent": "delta",
+      "depends_on": [],
+      "prompt": "Implement the Pulumi infrastructure (M0.2) as specified in SNAPP-TRD.md WU-0.2.\n\nCreate src/Snapp.Infrastructure/Pulumi/ with:\n\n1. Program.cs — Pulumi entry point\n2. AwsStack.cs — all AWS resources:\n   - 6 DynamoDB tables (snapp-users, snapp-networks, snapp-content, snapp-intel, snapp-tx, snapp-notif) with all GSIs, PAY_PER_REQUEST, Streams, TTL\n   - S3 buckets (snapp-media with CORS, snapp-client for Blazor static hosting)\n   - CloudFront distribution → snapp-client bucket, /api/* → API Gateway\n   - API Gateway (HTTP API) with routes per service, Lambda integrations\n   - KMS symmetric key for PII encryption (key policy: Lambda roles only)\n   - SES domain verification + configuration set\n   - IAM roles (one per Lambda, least-privilege: each scoped to its table(s) + KMS/SES as needed)\n   - CloudWatch log groups (30-day retention) + alarms (error rate >5%, p99 >3s)\n\n3. Pulumi config: domain, environment (dev/staging/prod), sesFromAddress\n\n4. Lambda deployment: each service published as Native AOT zip, deployed via Pulumi. Use the existing Dockerfiles as reference for build steps.\n\nTest: `pulumi preview` succeeds. Document the deployment steps in CONTRIBUTING.md.\n\nNote: do NOT deploy to a real AWS account. Just verify the Pulumi code compiles and preview works.",
+      "done_when": "Pulumi stack compiles. pulumi preview succeeds. All resources defined. Deployment documented."
+    },
+    {
+      "id": "S16-002",
+      "title": "API Gateway Authorizer Lambda",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement the API Gateway Authorizer (M1.4) as specified in SNAPP-TRD.md WU-1.4.\n\nCreate Snapp.Service.Authorizer:\n\n1. Lambda function (raw handler, not Minimal API):\n   - Input: APIGatewayHttpApiV2ProxyRequest\n   - Extract Authorization: Bearer {token}\n   - Validate JWT: RS256 signature (public key from Secrets Manager, cached in static field), expiry, issuer, audience\n   - Return Allow/Deny IAM policy with context: { userId, emailHash }\n   - Cache authorizer result for min(token remaining TTL, 300s)\n\n2. Exclude from authorization (configured in API Gateway, not in this Lambda):\n   - POST /api/auth/magic-link, /api/auth/validate, /api/auth/refresh\n\n3. Unit tests: valid JWT → Allow, expired → Deny, wrong signature → Deny, missing header → Deny\n\nThis Lambda is prod-only — it replaces Kong's JWT plugin in the AWS environment.",
+      "done_when": "Authorizer Lambda compiles. Unit tests pass for all JWT validation scenarios."
+    },
+    {
+      "id": "S16-003",
+      "title": "Production readiness checklist and CI/CD for AWS",
+      "agent": "delta",
+      "depends_on": ["S16-001", "S16-002"],
+      "prompt": "Prepare production deployment infrastructure.\n\n1. Update .github/workflows/deploy.yml:\n   - Trigger: manual dispatch or merge to main with [deploy] tag\n   - Steps: build all services with Native AOT, run tests, pulumi up to staging, run E2E against staging, manual approval gate, pulumi up to prod\n\n2. Create scripts/deploy-aws.sh:\n   - Build all Lambda zips (dotnet publish with Native AOT)\n   - Run pulumi up with selected stack (staging/prod)\n   - Invalidate CloudFront cache\n   - Verify deployment (health checks on all API endpoints)\n\n3. Create docs/PRODUCTION-READINESS.md checklist:\n   - [ ] All integration tests pass locally\n   - [ ] Pulumi preview clean\n   - [ ] KMS key created\n   - [ ] SES domain verified\n   - [ ] SSL certificate in ACM\n   - [ ] DNS configured\n   - [ ] Environment variables set in Pulumi config\n   - [ ] Secrets in Secrets Manager (JWT signing key)\n   - [ ] CloudWatch alarms configured\n   - [ ] First deployment to staging verified\n\n4. Update CONTRIBUTING.md with AWS deployment section.",
+      "done_when": "Deploy workflow, deploy script, and production readiness checklist all created. Documented."
+    },
+    {
+      "id": "S16-004",
+      "title": "Final integration validation",
+      "agent": "quinn",
+      "depends_on": ["S16-003"],
+      "prompt": "Final comprehensive validation of the entire SNAPP platform.\n\n1. Run scripts/start-and-test.sh — all infrastructure + all tests\n2. Run every test project: `dotnet test` from solution root\n3. Count total tests, pass rate, coverage\n4. Full end-to-end walkthrough documenting every feature:\n   - Auth (magic link login, token refresh, logout)\n   - Profiles (onboarding, edit, view, completeness)\n   - Networks (create, apply, approve, settings, roles)\n   - Feed (post, react, cross-post toggle)\n   - Discussions (create thread, reply, @mention)\n   - Notifications (bell, drawer, mark read, digest, preferences)\n   - Intelligence (contribute data, scoring radar, benchmarks, valuation, scenarios, career stage, market intel)\n   - Questions (gap detection, answer, unlock, progression)\n   - Referrals (create, accept, outcome, reputation)\n   - Deal room (create, add participants, upload document, audit trail)\n   - LinkedIn (link, share — mocked)\n   - Channel relay (configure, verify, relay post)\n\n5. Write comprehensive final report: .claude/reports/final-validation.md\n   - Feature inventory with status\n   - Test metrics\n   - Known limitations\n   - Recommended next steps\n\n6. Commit everything.",
+      "done_when": "All tests pass. Every feature validated. Final report written. Platform is complete for local development and ready for AWS deployment."
+    }
+  ]
+}

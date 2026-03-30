@@ -1,0 +1,30 @@
+{
+  "sprint": "S8",
+  "description": "Enrichment Foundation — Provider registry, geographic/economic data, vertical configuration pack",
+  "tasks": [
+    {
+      "id": "S8-001",
+      "title": "Vertical Configuration Pack — Dental default",
+      "agent": "archie",
+      "depends_on": [],
+      "prompt": "Create the first Vertical Configuration Pack (M7.9) as a well-structured JSON configuration that the intelligence service loads.\n\nCreate src/Snapp.Service.Intelligence/Config/verticals/dental.json containing:\n\n1. Scoring dimensions: 6 dimensions with names, weights, thresholds (strong/acceptable/weak), KPI definitions per dimension\n2. Contribution categories: each with field definitions (type, label, validation rules, confidence weight). Categories: Revenue, StaffCount, Utilization, ClientVolume, RevenueMix, OwnerProduction, EquipmentAge, FacilityType\n3. Career stage rules: signals mapped to each of 6 stages, risk flag triggers\n4. Benchmark metrics: list of metrics computed at each geographic level\n5. Valuation drivers: list with impact weights\n6. Registry source: NPI/NPPES configuration (taxonomy codes for dental: 122300000X etc.)\n7. Role definitions: staff roles relevant to this vertical (hygienist, assistant, associate, front desk, office manager)\n\nAlso create src/Snapp.Service.Intelligence/Config/verticals/schema.json — JSON Schema for the vertical config format, so other verticals can be validated.\n\nCreate a Snapp.Shared/Configuration/VerticalConfig.cs model class that deserializes the JSON config. Add loader to ServiceCollectionExtensions.\n\nUnit tests: verify dental config loads and validates. Verify schema validation catches missing required fields.",
+      "done_when": "Dental vertical config JSON exists. Schema validates it. C# model deserializes it. Unit tests pass."
+    },
+    {
+      "id": "S8-002",
+      "title": "Provider Registry Enrichment Service",
+      "agent": "bex",
+      "depends_on": ["S8-001"],
+      "prompt": "Implement the Provider/Practitioner Registry module (M7.1) as a scheduled enrichment job.\n\nCreate Snapp.Service.Enrichment as a scheduled job (console app) that:\n\n1. Reads the active vertical config to determine which registry to query\n2. For the dental vertical: queries NPPES API (or loads from NPPES data files) for dental providers by taxonomy code\n3. For each provider: extracts identity, specialty, practice address, enumeration date, co-located provider count\n4. Stores as SIGNAL# items in snapp-intel table with confidence scores\n5. Updates user profiles with enrichment data where email/NPI can be matched\n\nFor local dev/testing: create a fixture of 50-100 synthetic provider records that the enrichment job can load from a local JSON file instead of hitting the real NPPES API. The job should support both modes (config: Enrichment:Source = 'fixture' | 'api').\n\nAlso implement Geographic & Economic Data (M7.5): load county-level fixture data (population, median income, provider density) for 10-20 test counties. Store as MKT# items.\n\nDockerfile + docker-compose entry (snapp-enrichment). Can be run manually: `docker compose run snapp-enrichment`.\n\nIntegration tests: run enrichment with fixture data, verify SIGNAL# and MKT# items created in DynamoDB.",
+      "done_when": "Enrichment job loads fixture data into snapp-intel. Provider signals and market profiles created. Tests pass."
+    },
+    {
+      "id": "S8-003",
+      "title": "Sprint 8 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S8-001", "S8-002"],
+      "prompt": "Validate Sprint 8. Run enrichment job, verify data in DynamoDB, verify intelligence dashboard now shows enriched data (market profiles, provider signals). Run all tests. Write .claude/reports/sprint-8-validation.md.",
+      "done_when": "Enrichment data populates intelligence layer. All tests pass. Validation report written."
+    }
+  ]
+}

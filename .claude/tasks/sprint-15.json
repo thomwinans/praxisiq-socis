@@ -1,0 +1,38 @@
+{
+  "sprint": "S15",
+  "description": "External Communications — Discord bridge, Teams/Slack channel email relay",
+  "tasks": [
+    {
+      "id": "S15-001",
+      "title": "Channel Email Relay (Teams/Slack)",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement Channel Email Relay (M6.5) as specified in SNAPP-TRD.md WU-6.5.\n\nAdd to Network Service (or create separate endpoints):\n\n  POST /api/networks/{netId}/relays — add channel relay (steward only). Encrypt channel email. Send verification email to channel. Store RELAY# item with IsVerified=false.\n  POST /api/networks/{netId}/relays/{channelId}/verify?code={code} — verify channel (validates code, sets IsVerified=true, sends confirmation)\n  GET /api/networks/{netId}/relays — list relays (steward only, decrypt emails for display)\n  PUT /api/networks/{netId}/relays/{channelId} — update relay types/label\n  DELETE /api/networks/{netId}/relays/{channelId} — remove relay\n\nContent relay logic (in Content Service or via event):\n  After post/milestone creation: check for verified relays on the network, send formatted HTML email to channel address. Fire-and-forget (don't block post creation).\n\nDigest relay: after daily digest run, send network activity summary to channels with 'digest' relay type.\n\nRazor email templates for channel relay (simple HTML, inline CSS, under 25KB).\n\nFor testing: configure a relay pointing at a Papercut email address. Verify relay emails arrive in Papercut.\n\nIntegration tests: add relay, verify, create post, verify relay email in Papercut, delete relay.",
+      "done_when": "Channel relay CRUD works. Verification flow works. Posts relay to channel email via Papercut. Tests pass."
+    },
+    {
+      "id": "S15-002",
+      "title": "Channel Relay UI",
+      "agent": "frankie",
+      "depends_on": ["S15-001"],
+      "prompt": "Add channel relay management to Network Settings using MudBlazor.\n\nUpdate Pages/Network/Settings.razor, add new MudTab 'Channels':\n\n1. MudList of connected channels: label, MudChip platform (Teams/Slack/Other), MudChip status (Verified/Pending), relay types\n2. MudButton 'Add Channel' → MudDialog:\n   - MudSelect Platform (Teams/Slack/Other)\n   - MudTextField Channel Email\n   - MudTextField Label\n   - MudCheckBox group: relay types (Posts/Milestones/Digest)\n   - Instructions panel: MudExpansionPanel 'How to find your channel email' with platform-specific steps\n3. Per-channel: MudIconButton Edit (relay types), MudIconButton Delete\n4. Pending channels: MudAlert 'Waiting for verification — check your channel for the verification email'\n\nbUnit tests.",
+      "done_when": "Channel management tab in network settings. Add/verify/edit/delete relays. bUnit tests pass."
+    },
+    {
+      "id": "S15-003",
+      "title": "Discord Bridge Service (stub)",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Create a stub implementation of the Discord Bridge Service (M6.4) — enough structure for future development but not a full implementation.\n\n1. Create Snapp.Service.Discord project with:\n   - Program.cs (console app — Discord bots are long-lived, not request/response)\n   - IDiscordBotClient interface with methods: ConnectAsync, SendMessageAsync, RegisterSlashCommandsAsync\n   - MockDiscordBotClient that logs actions\n   - Configuration model for Discord bot token, server mappings\n   - Slash command stubs: /snapp link, /snapp benchmark, /snapp profile\n   - Account linking endpoint: POST /api/discord/link { discordUserId }\n\n2. Dockerfile + docker-compose entry (commented out — not started by default)\n\n3. README in the service directory explaining how to set up a Discord bot for testing.\n\nThis is a stub — the full implementation is deferred until a Discord community is ready to test with.",
+      "done_when": "Discord service project exists with interfaces and stubs. Dockerfile ready. README documents setup."
+    },
+    {
+      "id": "S15-004",
+      "title": "Sprint 15 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S15-001", "S15-002"],
+      "prompt": "Validate Sprint 15. Run all tests. Walkthrough: configure a channel relay to a Papercut address, verify it, create a post, verify relay email arrives in Papercut with correct formatting. Write .claude/reports/sprint-15-validation.md.",
+      "done_when": "All tests pass. Channel relay works end-to-end with Papercut. Validation report written."
+    }
+  ]
+}

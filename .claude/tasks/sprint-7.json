@@ -1,0 +1,46 @@
+{
+  "sprint": "S7",
+  "description": "Intelligence Advanced — Career stage classifier, valuation engine, market intelligence, valuation UI",
+  "tasks": [
+    {
+      "id": "S7-001",
+      "title": "Career Stage Classifier",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement Career Stage Classifier (M4.4) in the Intelligence Service.\n\nAdd endpoints:\n  POST /api/intel/career-stage/compute — classify user into one of 6 stages (Training/Entry, Junior/Associate, Acquisition/Launch, Growth, Mature, Pre-Exit) using deterministic rules from Vertical Config Pack. Inputs: registration date (tenure), co-location count, production volume, entity type, reputation signals. Output: stage, confidence level (high/medium/low), risk flags (retirement_risk, succession_risk, overextension, key_person_dependency), trigger signals. Store STAGE# items.\n  GET /api/intel/career-stage — get current classification\n  GET /api/intel/career-stage/history — history for tracking transitions\n\nRisk flags stored as RISK# items in snapp-intel.\n\nIntegration tests: classify users at different tenures/configurations, verify correct stage assignment, verify risk flags trigger appropriately.",
+      "done_when": "Career stage classifier works. 6 stages, risk flags, confidence levels. Tests pass."
+    },
+    {
+      "id": "S7-002",
+      "title": "Valuation Engine",
+      "agent": "bex",
+      "depends_on": ["S7-001"],
+      "prompt": "Implement the Valuation Engine (M4.5) in the Intelligence Service as specified in SNAPP-TRD.md WU-4.3.\n\nAdd endpoints:\n  POST /api/intel/valuation/compute — three-case model (downside/base/upside). Revenue × EBITDA margin × Multiple, calibrated against benchmarks. Confidence score from data completeness. Driver identification from Vertical Config. Store VAL# items (CURRENT + SNAPSHOT). If valuation changed >5%, queue notification.\n  GET /api/intel/valuation — current valuation with history\n  POST /api/intel/valuation/scenario — same computation with user-provided overrides (not saved). For 'what if' modeling.\n\nIntegration tests: compute valuation from contributed data, verify three cases (downside < base < upside), verify scenario overrides produce different results, verify notification on significant change.",
+      "done_when": "Valuation engine computes three-case model. Scenarios work. History tracked. Tests pass."
+    },
+    {
+      "id": "S7-003",
+      "title": "Market Intelligence Service",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Implement Market Intelligence (M4.6) in the Intelligence Service.\n\nAdd endpoints:\n  GET /api/intel/market/{geoId} — market profile for a geography. Return: practitioner density, competitor count, consolidation pressure, demographic trends, workforce indicators. Computed from MKT# items in snapp-intel (seeded by enrichment layer later; for now, create test fixtures).\n  GET /api/intel/market/compare?geos={geo1,geo2} — compare two markets side by side.\n\nCreate seed data fixture for 3-5 test markets so the UI has something to display.\n\nIntegration tests: retrieve market profile, compare two markets.",
+      "done_when": "Market intelligence endpoints work with test fixture data. Tests pass."
+    },
+    {
+      "id": "S7-004",
+      "title": "Valuation and Intelligence Advanced UI",
+      "agent": "frankie",
+      "depends_on": ["S7-001", "S7-002", "S7-003"],
+      "prompt": "Implement valuation UI (M4.9) and update dashboard with career stage and market intelligence.\n\n1. Pages/Intelligence/Valuation.razor (/intelligence/valuation):\n   - Three columns: MudPaper Downside | MudPaper **Base** (emphasized) | MudPaper Upside, large dollar values\n   - MudChip confidence badge\n   - Driver analysis: MudList of drivers, each with MudIcon impact level (high/medium/low), description, recommendation\n   - Scenario modeling: MudSlider/MudNumericField for key driver overrides, MudButton 'Recalculate', shows delta ('This scenario → +$X base case')\n   - History: MudChart Type=Line showing base case over time\n\n2. Update Dashboard (/intelligence):\n   - Career stage MudCard: stage name, MudChip confidence, risk flag MudAlerts if any\n   - Risk flags MudCard: MudList of active flags with MudIcon Severity colors\n   - Replace placeholders from S6\n\n3. Pages/Intelligence/Market.razor (/intelligence/market):\n   - MudAutocomplete for geography selection\n   - MudCard with market metrics: density, competition, growth trend\n   - MudButton 'Compare' → side-by-side MudTable\n\n4. bUnit tests.",
+      "done_when": "Valuation page with three-case display, drivers, scenarios, history chart. Career stage on dashboard. Market intelligence page. bUnit tests pass."
+    },
+    {
+      "id": "S7-005",
+      "title": "Sprint 7 integration validation",
+      "agent": "quinn",
+      "depends_on": ["S7-004"],
+      "prompt": "Validate Sprint 7. Run all tests. Walkthrough: view career stage classification, compute valuation, try scenario modeling, view market intelligence. Write .claude/reports/sprint-7-validation.md.",
+      "done_when": "All tests pass. Full intelligence suite functional. Validation report written."
+    }
+  ]
+}
