@@ -1,4 +1,140 @@
 @page "/networks/create"
 @attribute [Authorize]
+@inject INetworkService NetworkService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject NetworkState NetworkState
 
-<MudText Typo="Typo.h4">Create Network</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Create Network</MudText>
+
+<MudPaper Class="pa-6" MaxWidth="700px">
+    <MudStepper @bind-ActiveIndex="_activeStep">
+        <MudStep Title="Basics">
+            <MudForm @ref="_basicForm">
+                <MudTextField T="string"
+                              @bind-Value="_request.Name"
+                              Label="Network Name"
+                              Required="true"
+                              RequiredError="Name is required"
+                              MaxLength="100"
+                              Counter="100"
+                              Variant="Variant.Outlined"
+                              Class="mb-4" />
+                <MudTextField T="string"
+                              @bind-Value="_request.Description"
+                              Label="Description"
+                              Lines="3"
+                              MaxLength="2000"
+                              Counter="2000"
+                              Variant="Variant.Outlined" />
+            </MudForm>
+        </MudStep>
+
+        <MudStep Title="Charter">
+            <MudTextField T="string"
+                          @bind-Value="_request.Charter"
+                          Label="Network Charter"
+                          HelperText="Define your network's mission, values, and guidelines."
+                          Lines="8"
+                          MaxLength="10000"
+                          Counter="10000"
+                          Variant="Variant.Outlined" />
+        </MudStep>
+
+        <MudStep Title="Template">
+            <MudSelect T="string"
+                       @bind-Value="_request.Template"
+                       Label="Network Template"
+                       HelperText="Choose a template to pre-configure your network."
+                       Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("General")">General</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Dental")">Dental Practice</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Financial Advisory")">Financial Advisory</MudSelectItem>
+                <MudSelectItem T="string" Value="@("MSP")">Managed Service Provider</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Custom")">Custom</MudSelectItem>
+            </MudSelect>
+        </MudStep>
+    </MudStepper>
+
+    <MudDivider Class="my-4" />
+
+    <div class="d-flex justify-space-between">
+        <MudButton Variant="Variant.Text"
+                   OnClick="PreviousStep"
+                   Disabled="@(_activeStep == 0)">
+            Back
+        </MudButton>
+        @if (_activeStep < 2)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="NextStep">
+                Next
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="SubmitAsync"
+                       Disabled="_submitting">
+                @if (_submitting)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Create Network
+            </MudButton>
+        }
+    </div>
+</MudPaper>
+
+@code {
+    private readonly CreateNetworkRequest _request = new() { Template = "General" };
+    private MudForm? _basicForm;
+    private int _activeStep;
+    private bool _submitting;
+
+    private async Task NextStep()
+    {
+        if (_activeStep == 0)
+        {
+            if (_basicForm is not null)
+            {
+                await _basicForm.Validate();
+                if (!_basicForm.IsValid) return;
+            }
+            if (string.IsNullOrWhiteSpace(_request.Name)) return;
+        }
+        _activeStep++;
+    }
+
+    private void PreviousStep()
+    {
+        if (_activeStep > 0) _activeStep--;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_request.Name)) return;
+        _submitting = true;
+        try
+        {
+            var result = await NetworkService.CreateNetworkAsync(_request);
+            if (result is not null)
+            {
+                await NetworkState.SetCurrentNetworkAsync(result.NetworkId, result.Name, "steward");
+                Snackbar.Add("Network created!", Severity.Success);
+                Navigation.NavigateTo($"/networks/{result.NetworkId}");
+            }
+            else
+            {
+                Snackbar.Add("Failed to create network. Please try again.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred. Please try again.", Severity.Error);
+        }
+        _submitting = false;
+    }
+}

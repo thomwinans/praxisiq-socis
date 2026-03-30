@@ -1,4 +1,161 @@
 @page "/networks"
 @attribute [Authorize]
+@inject INetworkService NetworkService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4">Network Directory</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Network Directory</MudText>
+
+<MudGrid>
+    <MudItem xs="12" Class="d-flex justify-space-between align-center">
+        <MudTextField T="string"
+                      @bind-Value="_searchText"
+                      Placeholder="Search networks..."
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true"
+                      Style="max-width:400px;" />
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Href="/networks/create">
+            Create Network
+        </MudButton>
+    </MudItem>
+
+    <MudItem xs="12">
+        @if (_loading)
+        {
+            <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+        }
+        else if (_error)
+        {
+            <MudAlert Severity="Severity.Error" Class="my-4">
+                Failed to load networks.
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Retry</MudButton>
+            </MudAlert>
+        }
+        else if (!FilteredNetworks.Any())
+        {
+            <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0">
+                <MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No networks found</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/networks/create" Class="mt-4">
+                    Create Your First Network
+                </MudButton>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="FilteredNetworks" Hover="true" Breakpoint="Breakpoint.Sm" Dense="true">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh>Members</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Action</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">
+                        <MudLink Href="@($"/networks/{context.NetworkId}")">@context.Name</MudLink>
+                    </MudTd>
+                    <MudTd DataLabel="Description">
+                        @(Truncate(context.Description, 80))
+                    </MudTd>
+                    <MudTd DataLabel="Members">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default">
+                            @context.MemberCount
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        @if (IsMember(context))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Member</MudChip>
+                        }
+                        else if (HasApplied(context))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Applied</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Action">
+                        @if (IsMember(context))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       Href="@($"/networks/{context.NetworkId}")">View</MudButton>
+                        }
+                        else if (!HasApplied(context))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                       OnClick="@(() => OpenApplyDialogAsync(context))">Join</MudButton>
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<NetworkResponse> _allNetworks = new();
+    private HashSet<string> _myNetworkIds = new();
+    private HashSet<string> _appliedNetworkIds = new();
+    private string _searchText = string.Empty;
+    private bool _loading = true;
+    private bool _error;
+
+    private IEnumerable<NetworkResponse> FilteredNetworks =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _allNetworks
+            : _allNetworks.Where(n =>
+                n.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                (n.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        try
+        {
+            var allTask = NetworkService.GetAllNetworksAsync();
+            var myTask = NetworkService.GetMyNetworksAsync();
+            await Task.WhenAll(allTask, myTask);
+
+            _allNetworks = allTask.Result.Networks;
+            _myNetworkIds = myTask.Result.Networks.Select(n => n.NetworkId).ToHashSet();
+        }
+        catch
+        {
+            _error = true;
+        }
+        _loading = false;
+    }
+
+    private bool IsMember(NetworkResponse net) => _myNetworkIds.Contains(net.NetworkId);
+    private bool HasApplied(NetworkResponse net) => _appliedNetworkIds.Contains(net.NetworkId);
+
+    private static string Truncate(string? text, int max) =>
+        string.IsNullOrEmpty(text) ? "—" :
+        text.Length <= max ? text : text[..max] + "...";
+
+    private async Task OpenApplyDialogAsync(NetworkResponse network)
+    {
+        var parameters = new DialogParameters<ApplyDialog>
+        {
+            { x => x.NetworkId, network.NetworkId },
+            { x => x.NetworkName, network.Name },
+        };
+        var dialog = await DialogService.ShowAsync<ApplyDialog>($"Apply to {network.Name}", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            _appliedNetworkIds.Add(network.NetworkId);
+            Snackbar.Add("Application submitted!", Severity.Success);
+        }
+    }
+}

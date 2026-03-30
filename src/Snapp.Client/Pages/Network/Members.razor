@@ -1,9 +1,163 @@
 @page "/networks/{NetId}/members"
 @attribute [Authorize]
+@inject INetworkService NetworkService
+@inject NetworkState NetworkState
+@inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4">Members</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Members</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="my-4">
+        Failed to load members.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else
+{
+    <MudTextField T="string"
+                  @bind-Value="_searchText"
+                  Placeholder="Search members..."
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Dense"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Immediate="true"
+                  Style="max-width:400px;"
+                  Class="mb-4" />
+
+    @if (!FilteredMembers.Any())
+    {
+        <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Filled.PersonSearch" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No members found</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var member in FilteredMembers)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Elevation="1" Class="pa-3">
+                        <MudCardContent Class="d-flex align-center gap-3 pa-0">
+                            <MudAvatar Color="Color.Primary" Size="Size.Large">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" />
+                            </MudAvatar>
+                            <div class="flex-grow-1">
+                                <MudText Typo="Typo.subtitle1">@member.DisplayName</MudText>
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@RoleColor(member.Role)"
+                                         Variant="Variant.Outlined">
+                                    @member.Role
+                                </MudChip>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Joined @member.JoinedAt.ToString("MMM yyyy")
+                                </MudText>
+                            </div>
+                            @if (IsSteward)
+                            {
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small">
+                                    <MudMenuItem OnClick="@(() => ChangeRoleAsync(member, "steward"))"
+                                                 Disabled="@(member.Role == "steward")">
+                                        Make Steward
+                                    </MudMenuItem>
+                                    <MudMenuItem OnClick="@(() => ChangeRoleAsync(member, "member"))"
+                                                 Disabled="@(member.Role == "member")">
+                                        Set as Member
+                                    </MudMenuItem>
+                                    <MudMenuItem OnClick="@(() => ChangeRoleAsync(member, "associate"))"
+                                                 Disabled="@(member.Role == "associate")">
+                                        Set as Associate
+                                    </MudMenuItem>
+                                    <MudDivider />
+                                    <MudMenuItem OnClick="@(() => RemoveMemberAsync(member))"
+                                                 IconColor="Color.Error"
+                                                 Icon="@Icons.Material.Filled.PersonRemove">
+                                        Remove
+                                    </MudMenuItem>
+                                </MudMenu>
+                            }
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+}
 
 @code {
     [Parameter]
     public string NetId { get; set; } = string.Empty;
+
+    private List<MemberResponse> _members = new();
+    private string _searchText = string.Empty;
+    private bool _loading = true;
+    private bool _error;
+
+    private bool IsSteward => NetworkState.UserRole is "steward" or "admin";
+
+    private IEnumerable<MemberResponse> FilteredMembers =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _members
+            : _members.Where(m =>
+                m.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        try
+        {
+            var result = await NetworkService.GetMembersAsync(NetId);
+            _members = result.Members;
+        }
+        catch
+        {
+            _error = true;
+        }
+        _loading = false;
+    }
+
+    private static Color RoleColor(string role) => role switch
+    {
+        "steward" => Color.Primary,
+        "admin" => Color.Error,
+        "associate" => Color.Secondary,
+        _ => Color.Default,
+    };
+
+    private async Task ChangeRoleAsync(MemberResponse member, string newRole)
+    {
+        var success = await NetworkService.ChangeMemberRoleAsync(NetId, member.UserId, newRole);
+        if (success)
+        {
+            member.Role = newRole;
+            Snackbar.Add($"Role updated to {newRole}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to update role.", Severity.Error);
+        }
+    }
+
+    private async Task RemoveMemberAsync(MemberResponse member)
+    {
+        var success = await NetworkService.RemoveMemberAsync(NetId, member.UserId);
+        if (success)
+        {
+            _members.Remove(member);
+            Snackbar.Add($"{member.DisplayName} removed.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to remove member.", Severity.Error);
+        }
+    }
 }

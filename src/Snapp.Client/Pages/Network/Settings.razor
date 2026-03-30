@@ -1,9 +1,236 @@
 @page "/networks/{NetId}/settings"
 @attribute [Authorize]
+@inject INetworkService NetworkService
+@inject NetworkState NetworkState
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4">Network Settings</MudText>
+@if (!IsSteward)
+{
+    <MudAlert Severity="Severity.Warning">You do not have permission to access network settings.</MudAlert>
+}
+else if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+}
+else if (_network is null)
+{
+    <MudAlert Severity="Severity.Error">
+        Network not found.
+        <MudButton Variant="Variant.Text" Color="Color.Error" Href="/networks">Back to Directory</MudButton>
+    </MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h4" Class="mb-4">@_network.Name — Settings</MudText>
+
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+        <MudTabPanel Text="General" Icon="@Icons.Material.Filled.Settings">
+            <MudForm @ref="_generalForm">
+                <MudTextField T="string"
+                              @bind-Value="_editName"
+                              Label="Name"
+                              Required="true"
+                              RequiredError="Name is required"
+                              MaxLength="100"
+                              Counter="100"
+                              Variant="Variant.Outlined"
+                              Class="mb-4" />
+                <MudTextField T="string"
+                              @bind-Value="_editDescription"
+                              Label="Description"
+                              Lines="3"
+                              MaxLength="2000"
+                              Counter="2000"
+                              Variant="Variant.Outlined"
+                              Class="mb-4" />
+                <MudTextField T="string"
+                              @bind-Value="_editCharter"
+                              Label="Charter"
+                              Lines="8"
+                              MaxLength="10000"
+                              Counter="10000"
+                              Variant="Variant.Outlined"
+                              Class="mb-4" />
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="SaveGeneralAsync"
+                           Disabled="_saving">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Save Changes
+                </MudButton>
+            </MudForm>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Roles" Icon="@Icons.Material.Filled.AdminPanelSettings">
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">
+                Role management will be available in a future release.
+            </MudText>
+            <MudSimpleTable Hover="true">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><MudChip T="string" Size="Size.Small" Color="Color.Primary">steward</MudChip></td><td>Full network management and moderation</td></tr>
+                    <tr><td><MudChip T="string" Size="Size.Small" Color="Color.Default">member</MudChip></td><td>Standard participation and content creation</td></tr>
+                    <tr><td><MudChip T="string" Size="Size.Small" Color="Color.Secondary">associate</MudChip></td><td>Limited access, view-only in some areas</td></tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Applications" Icon="@Icons.Material.Filled.HowToReg" BadgeData="@_applications.Count"
+                     BadgeColor="Color.Warning" BadgeDot="false">
+            @if (_appsLoading)
+            {
+                <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-4" />
+            }
+            else if (!_applications.Any())
+            {
+                <MudPaper Class="pa-6 d-flex flex-column align-center" Elevation="0">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
+                    <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No pending applications</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudList T="ApplicationResponse">
+                    @foreach (var app in _applications)
+                    {
+                        <MudListItem>
+                            <div class="d-flex align-center justify-space-between" style="width:100%;">
+                                <div>
+                                    <MudText Typo="Typo.subtitle1">@(app.DisplayName ?? app.UserId)</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(app.ApplicationText))
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@app.ApplicationText</MudText>
+                                    }
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Applied @app.CreatedAt.ToString("MMM dd, yyyy")
+                                    </MudText>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <MudButton Variant="Variant.Filled"
+                                               Color="Color.Success"
+                                               Size="Size.Small"
+                                               OnClick="@(() => DecideAsync(app, "Approved"))">
+                                        Approve
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => DecideAsync(app, "Denied"))">
+                                        Deny
+                                    </MudButton>
+                                </div>
+                            </div>
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+        </MudTabPanel>
+    </MudTabs>
+}
 
 @code {
     [Parameter]
     public string NetId { get; set; } = string.Empty;
+
+    private NetworkResponse? _network;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _appsLoading;
+    private MudForm? _generalForm;
+
+    private string _editName = string.Empty;
+    private string _editDescription = string.Empty;
+    private string _editCharter = string.Empty;
+
+    private List<ApplicationResponse> _applications = new();
+
+    private bool IsSteward => NetworkState.UserRole is "steward" or "admin";
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _network = await NetworkService.GetNetworkAsync(NetId);
+        if (_network is not null)
+        {
+            _editName = _network.Name;
+            _editDescription = _network.Description ?? string.Empty;
+            _editCharter = _network.Charter ?? string.Empty;
+            await LoadApplicationsAsync();
+        }
+        _loading = false;
+    }
+
+    private async Task LoadApplicationsAsync()
+    {
+        _appsLoading = true;
+        try
+        {
+            _applications = await NetworkService.GetApplicationsAsync(NetId);
+        }
+        catch
+        {
+            _applications = new();
+        }
+        _appsLoading = false;
+    }
+
+    private async Task SaveGeneralAsync()
+    {
+        if (_generalForm is not null)
+        {
+            await _generalForm.Validate();
+            if (!_generalForm.IsValid) return;
+        }
+
+        _saving = true;
+        var request = new UpdateNetworkRequest
+        {
+            Name = _editName,
+            Description = _editDescription,
+            Charter = _editCharter,
+        };
+
+        var success = await NetworkService.UpdateNetworkAsync(NetId, request);
+        if (success)
+        {
+            Snackbar.Add("Settings saved.", Severity.Success);
+            if (_network is not null)
+            {
+                _network.Name = _editName;
+                _network.Description = _editDescription;
+                _network.Charter = _editCharter;
+            }
+            await NetworkState.SetCurrentNetworkAsync(NetId, _editName, NetworkState.UserRole);
+        }
+        else
+        {
+            Snackbar.Add("Failed to save settings.", Severity.Error);
+        }
+        _saving = false;
+    }
+
+    private async Task DecideAsync(ApplicationResponse app, string decision)
+    {
+        var success = await NetworkService.DecideApplicationAsync(NetId, app.UserId, decision);
+        if (success)
+        {
+            _applications.Remove(app);
+            Snackbar.Add($"Application {decision.ToLower()}.", decision == "Approved" ? Severity.Success : Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add("Failed to process application.", Severity.Error);
+        }
+    }
 }
