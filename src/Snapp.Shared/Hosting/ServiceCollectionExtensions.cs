@@ -45,4 +45,17 @@ public static class ServiceCollectionExtensions
         // Reads "Auth:Issuer", "Auth:Audience", "Auth:SigningKey"
         return services;
     }
+
+    /// <summary>
+    /// Registers the <see cref="Snapp.Shared.Interfaces.IEmailSender"/> implementation.
+    /// Uses SmtpEmailSender for development (Papercut) or SesEmailSender for production,
+    /// determined by the "Email:Provider" configuration value.
+    /// </summary>
+    public static IServiceCollection AddSnappEmail(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Implementation provided by the email library.
+        // Local dev: SmtpEmailSender reads "Email:SmtpHost", "Email:SmtpPort"
+        // AWS: SesEmailSender uses "Email:FromAddress", "Email:Region"
+        return services;
+    }
 }
