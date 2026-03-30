@@ -47,6 +47,8 @@ public class EditProfileTests : TestContext
             var textFields = cut.FindComponents<MudTextField<string>>();
             var nameField = textFields.First(tf => tf.Instance.Label == "Display Name");
             Assert.Equal("Dr. Smith", nameField.Instance.Value);
+            var geoField = textFields.First(tf => tf.Instance.Label == "Geography");
+            Assert.Equal("California", geoField.Instance.Value);
         });
     }
 

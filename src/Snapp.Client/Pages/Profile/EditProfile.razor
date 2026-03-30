@@ -32,37 +32,40 @@ else
                 }
 
                 <MudForm @ref="_form" @bind-IsValid="_isValid">
-                    <MudTextField T="string"
-                                  @bind-Value="_displayName"
-                                  Label="Display Name"
-                                  Variant="Variant.Outlined"
-                                  Required="true"
-                                  RequiredError="Display name is required"
-                                  MaxLength="100"
-                                  Class="mb-3" />
-                    <MudSelect T="string"
-                               @bind-Value="_specialty"
-                               Label="Specialty"
-                               Variant="Variant.Outlined"
-                               Clearable="true"
-                               Class="mb-3">
-                        @foreach (var s in Onboarding.Specialties)
-                        {
-                            <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
-                        }
-                    </MudSelect>
-                    <MudTextField T="string"
-                                  @bind-Value="_geography"
-                                  Label="Geography"
-                                  Variant="Variant.Outlined"
-                                  MaxLength="200"
-                                  Class="mb-3" />
-                    <MudTextField T="string"
-                                  @bind-Value="_photoUrl"
-                                  Label="Photo URL"
-                                  Variant="Variant.Outlined"
-                                  MaxLength="500"
-                                  Class="mb-3" />
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          @bind-Value="_displayName"
+                                          Label="Display Name"
+                                          Variant="Variant.Outlined"
+                                          Required="true"
+                                          RequiredError="Display name is required"
+                                          MaxLength="100" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudAutocomplete T="string"
+                                             @bind-Value="_specialty"
+                                             Label="Primary specialty"
+                                             Variant="Variant.Outlined"
+                                             SearchFunc="SearchSpecialties"
+                                             CoerceText="true"
+                                             Clearable="true" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          @bind-Value="_geography"
+                                          Label="Geography"
+                                          Variant="Variant.Outlined"
+                                          MaxLength="200" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          @bind-Value="_photoUrl"
+                                          Label="Photo URL"
+                                          Variant="Variant.Outlined"
+                                          MaxLength="500" />
+                        </MudItem>
+                    </MudGrid>
                 </MudForm>
             </MudCardContent>
             <MudCardActions Class="d-flex justify-end gap-2 pa-4">
@@ -155,4 +158,12 @@ else
     }
 
     private void Cancel() => Navigation.NavigateTo("/profile");
+
+    private Task<IEnumerable<string>> SearchSpecialties(string? value, CancellationToken ct)
+    {
+        var results = string.IsNullOrEmpty(value)
+            ? Onboarding.Specialties.AsEnumerable()
+            : Onboarding.Specialties.Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(results);
+    }
 }

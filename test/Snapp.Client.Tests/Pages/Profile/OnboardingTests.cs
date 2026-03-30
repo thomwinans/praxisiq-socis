@@ -32,9 +32,26 @@ public class OnboardingTests : TestContext
     {
         var cut = RenderComponent<Onboarding>();
 
-        Assert.Contains("About You", cut.Markup);
-        var textFields = cut.FindComponents<MudTextField<string>>();
-        Assert.Contains(textFields, tf => tf.Instance.Label == "Display Name");
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Tell us about yourself", cut.Markup);
+            var textFields = cut.FindComponents<MudTextField<string>>();
+            Assert.Contains(textFields, tf => tf.Instance.Label == "First name");
+            Assert.Contains(textFields, tf => tf.Instance.Label == "Last name");
+            Assert.Contains(textFields, tf => tf.Instance.Label == "Display name");
+        });
+    }
+
+    [Fact]
+    public void Onboarding_RendersPageHeading()
+    {
+        var cut = RenderComponent<Onboarding>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Let's set up your profile", cut.Markup);
+            Assert.Contains("Takes about 2 minutes", cut.Markup);
+        });
     }
 
     [Fact]
@@ -42,28 +59,35 @@ public class OnboardingTests : TestContext
     {
         var cut = RenderComponent<Onboarding>();
 
-        var progress = cut.FindComponent<MudProgressLinear>();
-        Assert.NotNull(progress);
+        cut.WaitForAssertion(() =>
+        {
+            var progress = cut.FindComponent<MudProgressLinear>();
+            Assert.NotNull(progress);
+        });
     }
 
     [Fact]
-    public async Task Onboarding_NextButton_AdvancesToStep2()
+    public async Task Onboarding_ContinueButton_AdvancesToStep2()
     {
         var cut = RenderComponent<Onboarding>();
 
-        // Set display name to make step 1 valid
-        var nameField = cut.FindComponents<MudTextField<string>>()
-            .First(tf => tf.Instance.Label == "Display Name");
-        await cut.InvokeAsync(() => nameField.Instance.SetText("Test User"));
+        cut.WaitForAssertion(() => Assert.Contains("Tell us about yourself", cut.Markup));
 
-        // Click Next
+        // Set required fields to make step 1 valid
+        var textFields = cut.FindComponents<MudTextField<string>>();
+        var firstNameField = textFields.First(tf => tf.Instance.Label == "First name");
+        var lastNameField = textFields.First(tf => tf.Instance.Label == "Last name");
+        await cut.InvokeAsync(() => firstNameField.Instance.SetText("Test"));
+        await cut.InvokeAsync(() => lastNameField.Instance.SetText("User"));
+
+        // Click Continue
         var buttons = cut.FindComponents<MudButton>();
-        var nextButton = buttons.First(b => b.Markup.Contains("Next"));
-        await cut.InvokeAsync(() => nextButton.Instance.OnClick.InvokeAsync());
+        var continueButton = buttons.First(b => b.Markup.Contains("Continue"));
+        await cut.InvokeAsync(() => continueButton.Instance.OnClick.InvokeAsync());
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Your Practice", cut.Markup);
+            Assert.Contains("About your practice", cut.Markup);
         });
     }
 
@@ -72,14 +96,16 @@ public class OnboardingTests : TestContext
     {
         var cut = RenderComponent<Onboarding>();
 
+        cut.WaitForAssertion(() => Assert.Contains("Tell us about yourself", cut.Markup));
+
         // Advance to step 2
-        var nameField = cut.FindComponents<MudTextField<string>>()
-            .First(tf => tf.Instance.Label == "Display Name");
-        await cut.InvokeAsync(() => nameField.Instance.SetText("Test User"));
+        var textFields = cut.FindComponents<MudTextField<string>>();
+        var firstNameField = textFields.First(tf => tf.Instance.Label == "First name");
+        await cut.InvokeAsync(() => firstNameField.Instance.SetText("Test"));
 
         var buttons = cut.FindComponents<MudButton>();
-        var nextButton = buttons.First(b => b.Markup.Contains("Next"));
-        await cut.InvokeAsync(() => nextButton.Instance.OnClick.InvokeAsync());
+        var continueButton = buttons.First(b => b.Markup.Contains("Continue"));
+        await cut.InvokeAsync(() => continueButton.Instance.OnClick.InvokeAsync());
 
         cut.WaitForAssertion(() =>
         {
@@ -89,7 +115,62 @@ public class OnboardingTests : TestContext
     }
 
     [Fact]
-    public async Task Onboarding_FinishButton_CallsApi()
+    public async Task Onboarding_Step2HasPracticeFields()
+    {
+        var cut = RenderComponent<Onboarding>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Tell us about yourself", cut.Markup));
+
+        // Advance to step 2
+        var textFields = cut.FindComponents<MudTextField<string>>();
+        var firstNameField = textFields.First(tf => tf.Instance.Label == "First name");
+        await cut.InvokeAsync(() => firstNameField.Instance.SetText("Test"));
+
+        var buttons = cut.FindComponents<MudButton>();
+        var continueButton = buttons.First(b => b.Markup.Contains("Continue"));
+        await cut.InvokeAsync(() => continueButton.Instance.OnClick.InvokeAsync());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("About your practice", cut.Markup);
+            Assert.Contains("benchmarking and practice intelligence", cut.Markup);
+            var practiceName = cut.FindComponents<MudTextField<string>>();
+            Assert.Contains(practiceName, tf => tf.Instance.Label == "Practice name");
+        });
+    }
+
+    [Fact]
+    public async Task Onboarding_Step3HasLinkedInSection()
+    {
+        var cut = RenderComponent<Onboarding>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Tell us about yourself", cut.Markup));
+
+        // Advance to step 2
+        var textFields = cut.FindComponents<MudTextField<string>>();
+        var firstNameField = textFields.First(tf => tf.Instance.Label == "First name");
+        await cut.InvokeAsync(() => firstNameField.Instance.SetText("Test"));
+
+        var buttons = cut.FindComponents<MudButton>();
+        var continueButton = buttons.First(b => b.Markup.Contains("Continue"));
+        await cut.InvokeAsync(() => continueButton.Instance.OnClick.InvokeAsync());
+
+        // Advance to step 3
+        cut.WaitForAssertion(() => Assert.Contains("About your practice", cut.Markup));
+        buttons = cut.FindComponents<MudButton>();
+        continueButton = buttons.First(b => b.Markup.Contains("Continue"));
+        await cut.InvokeAsync(() => continueButton.Instance.OnClick.InvokeAsync());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Connect your accounts", cut.Markup);
+            Assert.Contains("Connect your LinkedIn profile", cut.Markup);
+            Assert.Contains("credentials are never stored", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public async Task Onboarding_GetStartedButton_CallsApi()
     {
         _userService.OnboardResult = new ProfileResponse
         {
@@ -100,31 +181,44 @@ public class OnboardingTests : TestContext
 
         var cut = RenderComponent<Onboarding>();
 
+        cut.WaitForAssertion(() => Assert.Contains("Tell us about yourself", cut.Markup));
+
         // Step 1: fill name
-        var nameField = cut.FindComponents<MudTextField<string>>()
-            .First(tf => tf.Instance.Label == "Display Name");
-        await cut.InvokeAsync(() => nameField.Instance.SetText("Test User"));
+        var textFields = cut.FindComponents<MudTextField<string>>();
+        var firstNameField = textFields.First(tf => tf.Instance.Label == "First name");
+        await cut.InvokeAsync(() => firstNameField.Instance.SetText("Test"));
 
         // Advance to step 2
         var buttons = cut.FindComponents<MudButton>();
-        var nextButton = buttons.First(b => b.Markup.Contains("Next"));
-        await cut.InvokeAsync(() => nextButton.Instance.OnClick.InvokeAsync());
+        var continueButton = buttons.First(b => b.Markup.Contains("Continue"));
+        await cut.InvokeAsync(() => continueButton.Instance.OnClick.InvokeAsync());
 
         // Advance to step 3
-        cut.WaitForAssertion(() => Assert.Contains("Your Practice", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("About your practice", cut.Markup));
         buttons = cut.FindComponents<MudButton>();
-        nextButton = buttons.First(b => b.Markup.Contains("Next"));
-        await cut.InvokeAsync(() => nextButton.Instance.OnClick.InvokeAsync());
+        continueButton = buttons.First(b => b.Markup.Contains("Continue"));
+        await cut.InvokeAsync(() => continueButton.Instance.OnClick.InvokeAsync());
 
-        // Click Finish
-        cut.WaitForAssertion(() => Assert.Contains("Connect", cut.Markup));
+        // Click Get Started
+        cut.WaitForAssertion(() => Assert.Contains("Connect your accounts", cut.Markup));
         buttons = cut.FindComponents<MudButton>();
-        var finishButton = buttons.First(b => b.Markup.Contains("Finish"));
-        await cut.InvokeAsync(() => finishButton.Instance.OnClick.InvokeAsync());
+        var getStartedButton = buttons.First(b => b.Markup.Contains("Get Started"));
+        await cut.InvokeAsync(() => getStartedButton.Instance.OnClick.InvokeAsync());
 
         cut.WaitForAssertion(() =>
         {
             Assert.True(_userService.OnboardCalled);
+        });
+    }
+
+    [Fact]
+    public void Onboarding_ShowsBottomHelperText()
+    {
+        var cut = RenderComponent<Onboarding>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("You can update this anytime in your profile settings", cut.Markup);
         });
     }
 

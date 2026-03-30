@@ -2,178 +2,321 @@
 @attribute [Authorize]
 @inject IUserService UserService
 @inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
-    <MudCard Elevation="2" Class="pa-6">
-        <MudCardHeader>
-            <CardHeaderContent>
-                <MudText Typo="Typo.h4" Align="Align.Center">Welcome to SNAPP</MudText>
-                <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mt-1">
-                    Let's set up your profile
-                </MudText>
-            </CardHeaderContent>
-        </MudCardHeader>
-        <MudCardContent>
-            <MudProgressLinear Color="Color.Primary" Value="@StepProgress" Class="mb-6" Rounded="true" />
+@if (_initializing)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex justify-center" Style="min-height: 50vh;">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-1">Let's set up your profile</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mb-6">
+            Takes about 2 minutes. You can update everything later.
+        </MudText>
 
-            @if (_error is not null)
+        @* Step indicator *@
+        <div class="d-flex justify-center align-center mb-6">
+            @for (int i = 1; i <= 3; i++)
             {
-                <MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="() => _error = null">
-                    @_error
-                </MudAlert>
-            }
-
-            @if (_step == 1)
-            {
-                <MudText Typo="Typo.h6" Class="mb-4">About You</MudText>
-                <MudForm @ref="_form1" @bind-IsValid="_step1Valid">
-                    <MudTextField T="string"
-                                  @bind-Value="_displayName"
-                                  Label="Display Name"
-                                  Variant="Variant.Outlined"
-                                  Required="true"
-                                  RequiredError="Display name is required"
-                                  MaxLength="100"
-                                  Class="mb-3" />
-                    <MudSelect T="string"
-                               @bind-Value="_specialty"
-                               Label="Specialty"
-                               Variant="Variant.Outlined"
-                               Class="mb-3">
-                        @foreach (var s in Specialties)
-                        {
-                            <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
-                        }
-                    </MudSelect>
-                    <MudAutocomplete T="string"
-                                     @bind-Value="_geography"
-                                     Label="State / Region"
-                                     Variant="Variant.Outlined"
-                                     SearchFunc="SearchGeography"
-                                     MaxLength="200"
-                                     Class="mb-3" />
-                </MudForm>
-            }
-            else if (_step == 2)
-            {
-                <MudText Typo="Typo.h6" Class="mb-4">Your Practice</MudText>
-                <MudTextField T="string"
-                              @bind-Value="_practiceName"
-                              Label="Practice Name"
-                              Variant="Variant.Outlined"
-                              Class="mb-3" />
-                <MudSelect T="string"
-                           @bind-Value="_practiceSize"
-                           Label="Practice Size"
-                           Variant="Variant.Outlined"
-                           Class="mb-3">
-                    <MudSelectItem T="string" Value="@("Solo")">Solo</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("2-5")">2–5</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("6-10")">6–10</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("10+")">10+</MudSelectItem>
-                </MudSelect>
-                <MudNumericField T="int?"
-                                 @bind-Value="_yearsInPractice"
-                                 Label="Years in Practice"
-                                 Variant="Variant.Outlined"
-                                 Min="0"
-                                 Max="70"
-                                 Class="mb-3" />
-            }
-            else if (_step == 3)
-            {
-                <MudText Typo="Typo.h6" Class="mb-4">Connect</MudText>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Primary"
-                           FullWidth="true"
-                           StartIcon="@Icons.Material.Filled.Link"
-                           Disabled="true"
-                           Class="mb-4">
-                    Link your LinkedIn (coming soon)
-                </MudButton>
-                <MudTextField T="string"
-                              @bind-Value="_phone"
-                              Label="Phone (optional)"
-                              Variant="Variant.Outlined"
-                              InputType="InputType.Telephone"
-                              MaxLength="20"
-                              Class="mb-3" />
-            }
-        </MudCardContent>
-        <MudCardActions Class="d-flex justify-space-between pa-4">
-            @if (_step > 1)
-            {
-                <MudButton Variant="Variant.Text"
-                           OnClick="PreviousStep">
-                    Back
-                </MudButton>
-            }
-            else
-            {
-                <MudSpacer />
-            }
-
-            <div class="d-flex gap-2">
-                @if (_step >= 2 && _step < 3)
+                var step = i;
+                <MudAvatar Size="Size.Small"
+                           Color="@(step <= _step ? Color.Primary : Color.Default)"
+                           Variant="@(step <= _step ? Variant.Filled : Variant.Outlined)"
+                           Class="mx-1">
+                    @if (step < _step)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@(step == 1 ? Icons.Material.Filled.Person : step == 2 ? Icons.Material.Filled.Business : Icons.Material.Filled.Link)" Size="Size.Small" />
+                    }
+                </MudAvatar>
+                @if (step < 3)
                 {
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Secondary"
-                               OnClick="NextStep">
-                        Skip
-                    </MudButton>
+                    <MudDivider Style="width:60px;" />
                 }
-                @if (_step == 3)
+            }
+        </div>
+
+        <MudText Typo="Typo.caption" Align="Align.Center" Class="mb-2">
+            Step @_step of 3 — @(_step == 1 ? "About You" : _step == 2 ? "Your Practice" : "Connect")
+        </MudText>
+        <MudProgressLinear Color="Color.Primary" Value="@StepProgress" Class="mb-6" Rounded="true" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="() => _error = null">
+                @_error
+            </MudAlert>
+        }
+
+        <MudCard Elevation="2" Class="pa-6">
+            <MudCardContent>
+                @if (_step == 1)
                 {
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Secondary"
-                               OnClick="FinishAsync"
-                               Disabled="@_saving">
-                        Skip
-                    </MudButton>
+                    <MudText Typo="Typo.h6" Class="mb-1">Tell us about yourself</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        This helps us connect you with the right people and networks.
+                    </MudText>
+                    <MudForm @ref="_form1" @bind-IsValid="_step1Valid">
+                        <MudGrid Spacing="3">
+                            <MudItem xs="12" sm="6">
+                                <MudTextField T="string"
+                                              @bind-Value="_firstName"
+                                              Label="First name"
+                                              Variant="Variant.Outlined"
+                                              Required="true"
+                                              RequiredError="First name is required"
+                                              MaxLength="50"
+                                              Immediate="true"
+                                              TextChanged="OnNameChanged" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField T="string"
+                                              @bind-Value="_lastName"
+                                              Label="Last name"
+                                              Variant="Variant.Outlined"
+                                              Required="true"
+                                              RequiredError="Last name is required"
+                                              MaxLength="50"
+                                              Immediate="true"
+                                              TextChanged="OnNameChanged" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField T="string"
+                                              @bind-Value="_displayName"
+                                              Label="Display name"
+                                              HelperText="How others will see you"
+                                              Variant="Variant.Outlined"
+                                              Required="true"
+                                              RequiredError="Display name is required"
+                                              MaxLength="100" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudAutocomplete T="string"
+                                                 @bind-Value="_specialty"
+                                                 Label="Primary specialty"
+                                                 Variant="Variant.Outlined"
+                                                 SearchFunc="SearchSpecialties"
+                                                 CoerceText="true"
+                                                 Required="true"
+                                                 RequiredError="Please select or enter your specialty" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect T="string"
+                                           @bind-Value="_state"
+                                           Label="State"
+                                           Variant="Variant.Outlined"
+                                           Required="true"
+                                           RequiredError="Please select your state">
+                                    @foreach (var s in UsStates)
+                                    {
+                                        <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudAutocomplete T="string"
+                                                 @bind-Value="_city"
+                                                 Label="City or metro area"
+                                                 Variant="Variant.Outlined"
+                                                 SearchFunc="SearchCities"
+                                                 Required="true"
+                                                 RequiredError="Please enter your city or metro area"
+                                                 MaxLength="200" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudForm>
                 }
-                @if (_step < 3)
+                else if (_step == 2)
                 {
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Disabled="@(_step == 1 && !_step1Valid)"
-                               OnClick="NextStep">
-                        Next
+                    <MudText Typo="Typo.h6" Class="mb-1">About your practice</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        This unlocks benchmarking and practice intelligence. You can skip this for now.
+                    </MudText>
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          @bind-Value="_practiceName"
+                                          Label="Practice name"
+                                          Variant="Variant.Outlined"
+                                          MaxLength="200" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="string"
+                                       @bind-Value="_practiceRole"
+                                       Label="Your role"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true">
+                                @foreach (var r in PracticeRoles)
+                                {
+                                    <MudSelectItem T="string" Value="@r">@r</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="string"
+                                       @bind-Value="_practiceSize"
+                                       Label="Practice size"
+                                       HelperText="Approximate headcount"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true">
+                                @foreach (var s in PracticeSizes)
+                                {
+                                    <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="string"
+                                       @bind-Value="_yearsInPractice"
+                                       Label="Years in practice"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true">
+                                @foreach (var y in YearsOptions)
+                                {
+                                    <MudSelectItem T="string" Value="@y">@y</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="string"
+                                       @bind-Value="_practiceType"
+                                       Label="Practice type"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true">
+                                @foreach (var t in PracticeTypes)
+                                {
+                                    <MudSelectItem T="string" Value="@t">@t</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+                }
+                else if (_step == 3)
+                {
+                    <MudText Typo="Typo.h6" Class="mb-1">Connect your accounts</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Link your LinkedIn profile to auto-fill your SNAPP profile and share milestones.
+                    </MudText>
+
+                    <MudPaper Outlined="true" Class="pa-4 mb-4">
+                        <div class="d-flex align-center mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Large" Class="mr-3"
+                                     Style="color: #0A66C2;" />
+                            <MudText Typo="Typo.subtitle1">Connect your LinkedIn profile</MudText>
+                        </div>
+                        <MudText Typo="Typo.body2" Class="mb-3">
+                            We'll pull your name, photo, and headline so you don't have to type it again.
+                        </MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Link"
+                                   Disabled="true">
+                            Connect LinkedIn (coming in S13)
+                        </MudButton>
+                        <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+                            Your LinkedIn credentials are never stored. You can disconnect anytime.
+                        </MudText>
+                    </MudPaper>
+
+                    <MudPaper Outlined="true" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-2">Phone number</MudText>
+                        <MudText Typo="Typo.body2" Class="mb-3">
+                            Optional. Used only for account recovery — never shared or displayed.
+                        </MudText>
+                        <MudTextField T="string"
+                                      @bind-Value="_phone"
+                                      Label="Phone number"
+                                      Variant="Variant.Outlined"
+                                      InputType="InputType.Telephone"
+                                      Mask="@(new PatternMask("(000) 000-0000"))"
+                                      HelperText="US phone number" />
+                    </MudPaper>
+                }
+            </MudCardContent>
+            <MudCardActions Class="d-flex justify-space-between pa-4">
+                @if (_step > 1)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="PreviousStep">
+                        Back
                     </MudButton>
                 }
                 else
                 {
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Disabled="@_saving"
-                               OnClick="FinishAsync">
-                        @if (_saving)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        }
-                        Finish
-                    </MudButton>
+                    <MudSpacer />
                 }
-            </div>
-        </MudCardActions>
-    </MudCard>
-</MudContainer>
+
+                <div class="d-flex gap-2">
+                    @if (_step == 2)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="SkipStep">
+                            Skip
+                        </MudButton>
+                    }
+                    @if (_step == 3)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary"
+                                   OnClick="FinishAsync" Disabled="@_saving">
+                            Skip LinkedIn
+                        </MudButton>
+                    }
+
+                    @if (_step < 3)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   Disabled="@(_step == 1 && !_step1Valid)"
+                                   OnClick="NextStep">
+                            Continue
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   Disabled="@_saving" OnClick="FinishAsync">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            }
+                            Get Started
+                        </MudButton>
+                    }
+                </div>
+            </MudCardActions>
+        </MudCard>
+
+        <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary" Class="mt-4">
+            You can update this anytime in your profile settings.
+        </MudText>
+    </MudContainer>
+}
 
 @code {
     private MudForm? _form1;
     private int _step = 1;
     private bool _step1Valid;
     private bool _saving;
+    private bool _initializing = true;
     private string? _error;
 
     // Step 1
+    private string _firstName = string.Empty;
+    private string _lastName = string.Empty;
     private string _displayName = string.Empty;
     private string? _specialty;
-    private string? _geography;
+    private string? _state;
+    private string? _city;
 
     // Step 2
     private string? _practiceName;
+    private string? _practiceRole;
     private string? _practiceSize;
-    private int? _yearsInPractice;
+    private string? _yearsInPractice;
+    private string? _practiceType;
 
     // Step 3
     private string? _phone;
@@ -185,6 +328,14 @@
 
     private void NextStep() => _step = Math.Min(_step + 1, 3);
     private void PreviousStep() => _step = Math.Max(_step - 1, 1);
+    private void SkipStep() => NextStep();
+
+    private void OnNameChanged(string _)
+    {
+        var first = _firstName?.Trim() ?? string.Empty;
+        var last = _lastName?.Trim() ?? string.Empty;
+        _displayName = $"{first} {last}".Trim();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -197,6 +348,10 @@
         {
             // PII fetch failed — user will need to enter email manually
         }
+        finally
+        {
+            _initializing = false;
+        }
     }
 
     private async Task FinishAsync()
@@ -206,21 +361,23 @@
 
         try
         {
+            var geography = BuildGeography();
             var request = new Snapp.Shared.DTOs.User.OnboardingRequest
             {
                 DisplayName = _displayName,
                 Specialty = _specialty,
-                Geography = _geography,
+                Geography = geography,
                 Email = _email,
                 Phone = _phone
             };
 
             await UserService.OnboardAsync(request);
-            Navigation.NavigateTo("/");
+            Snackbar.Add("Welcome to SNAPP! Explore networks or create your own.", Severity.Normal);
+            Navigation.NavigateTo("/feed");
         }
         catch
         {
-            _error = "Failed to save your profile. Please try again.";
+            _error = "We couldn't save your information. Please try again.";
         }
         finally
         {
@@ -228,11 +385,29 @@
         }
     }
 
-    private Task<IEnumerable<string>> SearchGeography(string? value, CancellationToken ct)
+    private string? BuildGeography()
+    {
+        if (!string.IsNullOrEmpty(_city) && !string.IsNullOrEmpty(_state))
+            return $"{_city}, {_state}";
+        if (!string.IsNullOrEmpty(_state))
+            return _state;
+        return _city;
+    }
+
+    private Task<IEnumerable<string>> SearchSpecialties(string? value, CancellationToken ct)
     {
         var results = string.IsNullOrEmpty(value)
-            ? UsStates
-            : UsStates.Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase));
+            ? Specialties.AsEnumerable()
+            : Specialties.Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(results);
+    }
+
+    private Task<IEnumerable<string>> SearchCities(string? value, CancellationToken ct)
+    {
+        // Placeholder — will be replaced with geo database lookup
+        var results = string.IsNullOrEmpty(value)
+            ? Enumerable.Empty<string>()
+            : SampleCities.Where(c => c.Contains(value, StringComparison.OrdinalIgnoreCase));
         return Task.FromResult(results);
     }
 
@@ -253,6 +428,26 @@
         "Other"
     };
 
+    private static readonly string[] PracticeRoles = new[]
+    {
+        "Owner", "Partner", "Associate", "Employee", "Consultant", "Other"
+    };
+
+    private static readonly string[] PracticeSizes = new[]
+    {
+        "Solo", "2-5", "6-15", "16-50", "51-200", "200+"
+    };
+
+    private static readonly string[] YearsOptions = new[]
+    {
+        "< 1", "1-3", "4-7", "8-15", "16-25", "25+"
+    };
+
+    private static readonly string[] PracticeTypes = new[]
+    {
+        "Solo private", "Group private", "DSO/MSO", "Hospital/Institutional", "Other"
+    };
+
     private static readonly IEnumerable<string> UsStates = new[]
     {
         "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
@@ -264,6 +459,22 @@
         "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon",
         "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
         "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
-        "West Virginia", "Wisconsin", "Wyoming"
+        "West Virginia", "Wisconsin", "Wyoming",
+        "District of Columbia", "Puerto Rico", "Guam", "U.S. Virgin Islands",
+        "American Samoa", "Northern Mariana Islands"
+    };
+
+    private static readonly string[] SampleCities = new[]
+    {
+        "New York", "Los Angeles", "Chicago", "Houston", "Phoenix",
+        "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose",
+        "Austin", "Jacksonville", "Fort Worth", "Columbus", "Charlotte",
+        "Indianapolis", "San Francisco", "Seattle", "Denver", "Nashville",
+        "Oklahoma City", "El Paso", "Washington", "Boston", "Las Vegas",
+        "Portland", "Memphis", "Louisville", "Baltimore", "Milwaukee",
+        "Albuquerque", "Tucson", "Fresno", "Mesa", "Sacramento",
+        "Atlanta", "Kansas City", "Omaha", "Colorado Springs", "Raleigh",
+        "Virginia Beach", "Long Beach", "Miami", "Oakland", "Minneapolis",
+        "Tampa", "Tulsa", "Arlington", "New Orleans", "Cleveland"
     };
 }
