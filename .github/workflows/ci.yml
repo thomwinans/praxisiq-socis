@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  COMPOSE_FILE: src/Snapp.Infrastructure/Docker/docker-compose.yml
+  INFRA_SCRIPTS: src/Snapp.Infrastructure/Scripts
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ─── Setup ──────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install AWS CLI
+        run: |
+          if ! command -v aws &> /dev/null; then
+            curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+            unzip -q awscliv2.zip
+            sudo ./aws/install --update
+            rm -rf aws awscliv2.zip
+          fi
+          aws --version
+
+      - name: Install MinIO Client (mc)
+        run: |
+          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+          chmod +x /usr/local/bin/mc
+          mc --version
+
+      # ─── Generate dev keys ──────────────────────────────────
+      - name: Generate dev encryption keys
+        run: bash src/Snapp.Infrastructure/Docker/keys/generate-keys.sh
+
+      # ─── Start infrastructure ───────────────────────────────
+      - name: Start Docker Compose
+        run: docker compose -f ${{ env.COMPOSE_FILE }} up -d
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for infrastructure services..."
+          MAX_WAIT=120
+          INTERVAL=3
+          ELAPSED=0
+
+          check_health() {
+            # DynamoDB Local
+            curl -sf http://localhost:8042 > /dev/null 2>&1 || return 1
+            # Kong Admin
+            curl -sf http://localhost:8001/status > /dev/null 2>&1 || return 1
+            # MinIO
+            curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1 || return 1
+            # Papercut
+            curl -sf http://localhost:8025 > /dev/null 2>&1 || return 1
+            return 0
+          }
+
+          while ! check_health; do
+            if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
+              echo "ERROR: Services did not become healthy within ${MAX_WAIT}s"
+              docker compose -f ${{ env.COMPOSE_FILE }} ps
+              docker compose -f ${{ env.COMPOSE_FILE }} logs
+              exit 1
+            fi
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+            echo "  Waiting... (${ELAPSED}s / ${MAX_WAIT}s)"
+          done
+
+          echo "All services healthy"
+
+      # ─── Initialize infrastructure ──────────────────────────
+      - name: Initialize DynamoDB tables
+        run: DYNAMODB_ENDPOINT=http://localhost:8042 bash ${{ env.INFRA_SCRIPTS }}/init-dynamo-local.sh
+
+      - name: Initialize MinIO buckets
+        run: bash ${{ env.INFRA_SCRIPTS }}/init-minio.sh
+
+      - name: Initialize Kong
+        run: bash ${{ env.INFRA_SCRIPTS }}/init-kong.sh
+
+      # ─── Validate infrastructure ────────────────────────────
+      - name: Validate infrastructure
+        run: bash scripts/validate-all.sh
+
+      # ─── Build & Test ───────────────────────────────────────
+      - name: Restore packages
+        run: dotnet restore snapp.sln
+
+      - name: Build solution
+        run: dotnet build snapp.sln --no-restore --configuration Release
+
+      - name: Run tests
+        run: |
+          dotnet test snapp.sln \
+            --no-build \
+            --configuration Release \
+            --logger 'trx;LogFileName=results.trx' \
+            --results-directory TestResults
+
+      # ─── Upload artifacts ───────────────────────────────────
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: TestResults/
+          retention-days: 14
+
+      - name: Upload Docker logs on failure
+        if: failure()
+        run: |
+          mkdir -p DockerLogs
+          for svc in $(docker compose -f ${{ env.COMPOSE_FILE }} ps --services); do
+            docker compose -f ${{ env.COMPOSE_FILE }} logs "$svc" > "DockerLogs/${svc}.log" 2>&1
+          done
+
+      - name: Upload Docker logs artifact
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-logs
+          path: DockerLogs/
+          retention-days: 7
+
+      # ─── Teardown ───────────────────────────────────────────
+      - name: Tear down infrastructure
+        if: always()
+        run: docker compose -f ${{ env.COMPOSE_FILE }} down -v
