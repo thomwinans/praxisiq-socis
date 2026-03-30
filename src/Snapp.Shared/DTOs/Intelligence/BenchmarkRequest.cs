@@ -4,12 +4,12 @@ namespace Snapp.Shared.DTOs.Intelligence;
 
 public class BenchmarkRequest
 {
-    [Required]
+    [Required, MaxLength(100)]
     public string Specialty { get; set; } = string.Empty;
 
-    [Required]
+    [Required, MaxLength(200)]
     public string Geography { get; set; } = string.Empty;
 
-    [Required]
+    [Required, MaxLength(50)]
     public string SizeBand { get; set; } = string.Empty;
 }

@@ -4,7 +4,7 @@ namespace Snapp.Shared.DTOs.Intelligence;
 
 public class SubmitDataRequest
 {
-    [Required]
+    [Required, MaxLength(100)]
     public string Category { get; set; } = string.Empty;
 
     [Required]

@@ -4,6 +4,6 @@ namespace Snapp.Shared.DTOs.Auth;
 
 public class MagicLinkValidateRequest
 {
-    [Required, MinLength(32)]
+    [Required, MinLength(32), MaxLength(128)]
     public string Code { get; set; } = string.Empty;
 }

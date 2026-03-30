@@ -10,6 +10,7 @@ public class CreateReferralRequest
     [Required]
     public string NetworkId { get; set; } = string.Empty;
 
+    [MaxLength(100)]
     public string? Specialty { get; set; }
 
     [MaxLength(1000)]
