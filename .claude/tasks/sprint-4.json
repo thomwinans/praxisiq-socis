@@ -3,6 +3,14 @@
   "description": "Communication — Threaded discussions and network feed",
   "tasks": [
     {
+      "id": "S4-000",
+      "title": "Fix: Add network settings GET endpoint",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "The Sprint 3 validation identified a gap: GET /api/networks/{netId}/settings returns 404. The UI (Pages/Network/Settings.razor) exists and renders for stewards, but the backend endpoint is missing.\n\nAdd to Snapp.Service.Network/Endpoints/NetworkEndpoints.cs:\n\n  GET /api/networks/{netId}/settings\n    Auth: required (steward or ManageNetwork permission only)\n    Handler:\n    1. Verify caller has ManageNetwork permission for this network\n    2. Get NET#{netId} META item (full network config including charter)\n    3. Get all ROLE# items for this network (role definitions)\n    4. Get pending application count (query GSI-PendingApps, count only)\n    5. Return NetworkSettingsResponse { Network (full), Roles (list), PendingApplicationCount }\n\nIf NetworkSettingsResponse doesn't exist in Snapp.Shared/DTOs, create it.\n\nAdd OpenAPI metadata (.WithName, .WithTags, .Produces, .WithOpenApi).\n\nAdd integration tests:\n  - Steward can access settings → 200 with correct data\n  - Non-steward member → 403\n  - Non-member → 403\n\nUpdate the UI (Settings.razor) to call this endpoint on load if it currently uses a different approach.",
+      "done_when": "GET /api/networks/{netId}/settings returns 200 for stewards with network config, roles, and pending count. 403 for non-stewards. Integration tests pass."
+    },
+    {
       "id": "S4-001",
       "title": "Content Service — Discussions and Feed in Docker",
       "agent": "bex",
@@ -30,8 +38,8 @@
       "id": "S4-004",
       "title": "Sprint 4 integration validation",
       "agent": "quinn",
-      "depends_on": ["S4-001", "S4-002", "S4-003"],
-      "prompt": "Validate Sprint 4. Run all tests. Walkthrough: login, select network, create thread, reply, create post, react. Verify non-members blocked. Write .claude/reports/sprint-4-validation.md.",
+      "depends_on": ["S4-000", "S4-001", "S4-002", "S4-003"],
+      "prompt": "Validate Sprint 4. Run all tests. Walkthrough: login, select network, verify settings endpoint works for steward (GET /api/networks/{netId}/settings returns 200), create thread, reply, create post, react. Verify non-members blocked from content and settings. Write .claude/reports/sprint-4-validation.md.",
       "done_when": "All tests pass. Discussion and feed functional. Validation report written."
     }
   ]
