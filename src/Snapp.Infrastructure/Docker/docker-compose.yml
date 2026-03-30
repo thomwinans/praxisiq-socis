@@ -135,6 +135,31 @@ services:
       retries: 5
       start_period: 10s
 
+  snapp-network:
+    build:
+      context: ../../../
+      dockerfile: src/Snapp.Service.Network/Dockerfile
+    container_name: snapp-network
+    ports:
+      - "8083:8080"
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AWS_ACCESS_KEY_ID: fakeAccessKey
+      AWS_SECRET_ACCESS_KEY: fakeSecretKey
+      AWS_DEFAULT_REGION: us-east-1
+      DynamoDB__ServiceURL: http://dynamodb-local:8000
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # ─── Dev Tools ────────────────────────────────────────────────
   swagger-ui:
     image: swaggerapi/swagger-ui:latest
