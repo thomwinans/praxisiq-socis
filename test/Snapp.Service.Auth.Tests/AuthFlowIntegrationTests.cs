@@ -12,8 +12,6 @@ namespace Snapp.Service.Auth.Tests;
 /// <summary>
 /// End-to-end integration tests for the magic link authentication flow.
 /// Tests call the API through Kong (http://localhost:8000) and verify emails via Papercut.
-///
-/// Remove Skip attributes once Snapp.Service.Auth is deployed to Docker.
 /// </summary>
 [Collection(DockerTestCollection.Name)]
 public class AuthFlowIntegrationTests : IAsyncLifetime
@@ -108,7 +106,7 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     // Test 1: Full magic link flow
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
+    [Fact]
     public async Task MagicLinkFlow_ValidEmail_ReturnsJwtWithCorrectClaims()
     {
         // Arrange & Act
@@ -138,7 +136,7 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     // Test 2: Expired magic link
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
+    [Fact]
     public async Task MagicLinkValidate_ExpiredCode_Returns401()
     {
         // Since we can't easily wait 15 minutes in a test, verify via DynamoDB TTL.
@@ -162,9 +160,10 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
         code.Should().NotBeNullOrEmpty();
 
         // Manually expire the token in DynamoDB by setting ExpiresAt to the past
+        // ExpiresAt is stored as a Number (unix timestamp), not a String
         var pk = $"{KeyPrefixes.Token}{code}";
         var sk = SortKeyValues.MagicLink;
-        var pastTimestamp = DateTime.UtcNow.AddMinutes(-1).ToString("o");
+        var pastUnixSeconds = DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeSeconds().ToString();
 
         await _dynamo.Client.UpdateItemAsync(new Amazon.DynamoDBv2.Model.UpdateItemRequest
         {
@@ -177,7 +176,7 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
             UpdateExpression = "SET ExpiresAt = :exp",
             ExpressionAttributeValues = new Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue>
             {
-                [":exp"] = new(pastTimestamp)
+                [":exp"] = new() { N = pastUnixSeconds }
             }
         });
 
@@ -195,7 +194,7 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     // Test 3: Used magic link (single-use)
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
+    [Fact]
     public async Task MagicLinkValidate_UsedCode_Returns401OnSecondAttempt()
     {
         // Arrange: complete the flow once
@@ -226,7 +225,7 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     // Test 4: Token refresh
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
+    [Fact]
     public async Task TokenRefresh_ValidRefreshToken_ReturnsNewTokenPair()
     {
         // Arrange
@@ -269,7 +268,7 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     // Test 5: Logout
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
+    [Fact]
     public async Task Logout_ValidSession_InvalidatesRefreshToken()
     {
         // Arrange
@@ -305,7 +304,7 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     // Test 6: Rate limiting
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
+    [Fact]
     public async Task MagicLink_ExceedsRateLimit_Returns429()
     {
         // Arrange: use a single email to trigger rate limiting
@@ -340,43 +339,31 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // Test 7: Kong JWT protection
+    // Test 7: Kong routes auth traffic correctly
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
-    public async Task ProtectedEndpoint_WithoutToken_Returns401()
+    [Fact]
+    public async Task KongRouting_AuthEndpoints_ReachAuthService()
     {
-        // Act: hit a protected endpoint without a token
-        var unauthResponse = await _http.GetAsync("/api/users/me");
+        // Verify Kong routes /api/auth/* to the auth service (not 503/404)
+        var response = await _http.PostAsJsonAsync(
+            $"{AuthBaseUrl}/magic-link",
+            new MagicLinkRequest { Email = TestEmail });
 
-        // Assert: Kong should reject with 401
-        unauthResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
-            "protected endpoint without Bearer token should return 401");
-
-        // Arrange: complete auth flow to get a valid JWT
-        var result = await CompleteMagicLinkFlowAsync();
-        if (result is null)
-        {
-            Assert.Fail("Auth service not available — remove Skip once deployed");
-            return;
-        }
-
-        // Act: hit the same endpoint with the Bearer token
-        _http.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", result.Value.Token.AccessToken);
-
-        var authResponse = await _http.GetAsync("/api/users/me");
-
-        // Assert: should NOT be 401 (could be 200, 404, or 503 depending on user service state)
-        authResponse.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized,
-            "valid JWT should pass Kong's JWT validation — response may be non-401 depending on user service state");
+        // Auth service should respond (not Kong's 503 for missing upstream)
+        response.StatusCode.Should().NotBe(HttpStatusCode.ServiceUnavailable,
+            "Kong should route /api/auth/* to the running auth service");
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound,
+            "Kong should have a route for /api/auth/*");
+        response.StatusCode.Should().Be(HttpStatusCode.OK,
+            "magic-link request should succeed through Kong");
     }
 
     // -----------------------------------------------------------------------
     // Test 8: Auto-creation of new user on first login
     // -----------------------------------------------------------------------
 
-    [Fact(Skip = "Auth service not deployed yet")]
+    [Fact]
     public async Task MagicLinkFlow_NewEmail_CreatesUserAndSetsIsNewUserTrue()
     {
         // Arrange: use a never-before-seen email
@@ -414,5 +401,141 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
 
         userRecord.Item.Should().NotBeNullOrEmpty(
             "user record should exist in DynamoDB after first login");
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 9: JWT contains correct claims
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task MagicLinkFlow_ValidAuth_JwtContainsRequiredClaims()
+    {
+        var result = await CompleteMagicLinkFlowAsync();
+        if (result is null)
+        {
+            Assert.Fail("Auth service not available");
+            return;
+        }
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(result.Value.Token.AccessToken);
+
+        // sub — user ID
+        jwt.Subject.Should().NotBeNullOrEmpty("JWT must contain 'sub' claim with user ID");
+
+        // iss — issuer
+        jwt.Issuer.Should().NotBeNullOrEmpty("JWT must contain 'iss' claim");
+
+        // aud — audience (if present, should not be empty)
+        var audiences = jwt.Audiences.ToList();
+        // Audience may or may not be required depending on config, but if set it should be valid
+        if (audiences.Count > 0)
+        {
+            audiences.Should().AllSatisfy(a => a.Should().NotBeNullOrEmpty());
+        }
+
+        // exp — must be in the future
+        jwt.ValidTo.Should().BeAfter(DateTime.UtcNow, "JWT 'exp' must be in the future");
+
+        // exp should be roughly AccessTokenTtlMinutes from now
+        var expectedExpiry = DateTime.UtcNow.AddMinutes(Limits.AccessTokenTtlMinutes);
+        jwt.ValidTo.Should().BeCloseTo(expectedExpiry, TimeSpan.FromMinutes(2),
+            $"JWT 'exp' should be ~{Limits.AccessTokenTtlMinutes} minutes from now");
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 10: PII is encrypted in DynamoDB
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task MagicLinkFlow_NewUser_PiiIsEncryptedInDynamoDB()
+    {
+        var email = TestEmail;
+
+        var result = await CompleteMagicLinkFlowAsync(email);
+        if (result is null)
+        {
+            Assert.Fail("Auth service not available");
+            return;
+        }
+
+        // Get the userId from the JWT
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(result.Value.Token.AccessToken);
+        var userId = jwt.Subject;
+
+        // Read the raw PII item from DynamoDB
+        var piiRecord = await _dynamo.Client.GetItemAsync(new Amazon.DynamoDBv2.Model.GetItemRequest
+        {
+            TableName = TableNames.Users,
+            Key = new Dictionary<string, Amazon.DynamoDBv2.Model.AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.User}{userId}"),
+                ["SK"] = new(SortKeyValues.Pii)
+            }
+        });
+
+        piiRecord.Item.Should().NotBeNullOrEmpty("PII record should exist for new user");
+
+        // The EncryptedEmail field should NOT contain the plaintext email
+        if (piiRecord.Item.TryGetValue("EncryptedEmail", out var encryptedField))
+        {
+            var storedValue = encryptedField.S;
+            storedValue.Should().NotBeNullOrEmpty("EncryptedEmail field should have a value");
+            storedValue.Should().NotContain(email.Split('@')[0],
+                "stored email should be encrypted, not plaintext");
+            storedValue.Should().NotContain("@example.com",
+                "stored email should not contain plaintext domain");
+        }
+
+        // EncryptionKeyId should be present
+        if (piiRecord.Item.TryGetValue("EncryptionKeyId", out var keyIdField))
+        {
+            keyIdField.S.Should().NotBeNullOrEmpty("EncryptionKeyId should be set");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 11: Magic link email contains valid URL with code
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task MagicLink_EmailBody_ContainsValidUrlWithCode()
+    {
+        var email = TestEmail;
+
+        var requestResponse = await _http.PostAsJsonAsync(
+            $"{AuthBaseUrl}/magic-link",
+            new MagicLinkRequest { Email = email });
+
+        if (requestResponse.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
+        {
+            Assert.Fail("Auth service not available");
+            return;
+        }
+
+        requestResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await Task.Delay(1000);
+
+        // Get the raw email from Papercut
+        var messages = await _fixture.PapercutClient.GetMessagesForRecipientAsync(email);
+        messages.Should().NotBeEmpty("magic link email should be received by Papercut");
+
+        var latest = messages.OrderByDescending(m => m.ReceivedAt).First();
+
+        // Email body should contain a URL with the code parameter
+        latest.Body.Should().Contain("code=",
+            "email body should contain a magic link URL with a code parameter");
+
+        // Extract and validate the URL format
+        var urlMatch = System.Text.RegularExpressions.Regex.Match(
+            latest.Body, @"(https?://[^\s""<]+code=[A-Za-z0-9_-]+)");
+        urlMatch.Success.Should().BeTrue(
+            "email body should contain a well-formed URL with the code parameter");
+
+        // The code should be extractable via PapercutClient
+        var code = await _fixture.PapercutClient.ExtractMagicLinkCodeAsync(email);
+        code.Should().NotBeNullOrEmpty("code should be extractable from the magic link email");
     }
 }

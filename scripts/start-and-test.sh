@@ -71,8 +71,8 @@ INTERVAL=3
 ELAPSED=0
 
 check_health() {
-  # DynamoDB
-  curl -sf http://localhost:8042 > /dev/null 2>&1 || return 1
+  # DynamoDB Local returns 400 on bare GET / (expected); check it responds at all
+  curl -so /dev/null -w '%{http_code}' http://localhost:8042 2>/dev/null | grep -q '400' || return 1
   # Kong Admin
   curl -sf http://localhost:8001/status > /dev/null 2>&1 || return 1
   # MinIO

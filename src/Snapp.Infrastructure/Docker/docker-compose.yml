@@ -72,7 +72,7 @@ services:
   # ─── Application Services ──────────────────────────────────────
   snapp-auth:
     build:
-      context: ../../
+      context: ../../../
       dockerfile: src/Snapp.Service.Auth/Dockerfile
     container_name: snapp-auth
     ports:
@@ -84,6 +84,9 @@ services:
         condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      AWS_ACCESS_KEY_ID: fakeAccessKey
+      AWS_SECRET_ACCESS_KEY: fakeSecretKey
+      AWS_DEFAULT_REGION: us-east-1
       DynamoDB__ServiceURL: http://dynamodb-local:8000
       Encryption__KeyFilePath: /keys/dev-master.key
       Auth__SigningKeyPath: /keys/jwt-signing.pem
