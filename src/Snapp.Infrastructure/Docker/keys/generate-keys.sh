@@ -23,3 +23,13 @@ if [ ! -f "${PEM_FILE}" ]; then
 else
   echo "jwt-signing.pem already exists — skipping"
 fi
+
+# RSA public key for Kong JWT validation (derived from private key)
+PUB_FILE="${SCRIPT_DIR}/jwt-signing.pub"
+if [ ! -f "${PUB_FILE}" ] && [ -f "${PEM_FILE}" ]; then
+  openssl rsa -in "${PEM_FILE}" -pubout -out "${PUB_FILE}" 2>/dev/null
+  chmod 644 "${PUB_FILE}"
+  echo "Generated jwt-signing.pub"
+else
+  echo "jwt-signing.pub already exists — skipping"
+fi

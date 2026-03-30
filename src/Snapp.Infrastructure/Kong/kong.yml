@@ -36,62 +36,112 @@ services:
     tags: [snapp, linkedin]
 
 # ─── Routes ───────────────────────────────────────────────────
+# Public auth routes (no JWT required)
 routes:
-  - name: auth-route
+  - name: auth-magic-link-route
     service: snapp-auth
     paths:
-      - /api/auth
+      - /api/auth/magic-link
+    methods:
+      - POST
     strip_path: false
-    tags: [snapp, auth]
+    tags: [snapp, auth, public]
 
+  - name: auth-validate-route
+    service: snapp-auth
+    paths:
+      - /api/auth/validate
+    methods:
+      - POST
+    strip_path: false
+    tags: [snapp, auth, public]
+
+  - name: auth-refresh-route
+    service: snapp-auth
+    paths:
+      - /api/auth/refresh
+    methods:
+      - POST
+    strip_path: false
+    tags: [snapp, auth, public]
+
+  # Protected auth routes (JWT required)
+  - name: auth-logout-route
+    service: snapp-auth
+    paths:
+      - /api/auth/logout
+    methods:
+      - POST
+    strip_path: false
+    tags: [snapp, auth, protected]
+
+  # Protected service routes (JWT required)
   - name: users-route
     service: snapp-user
     paths:
       - /api/users
     strip_path: false
-    tags: [snapp, user]
+    tags: [snapp, user, protected]
 
   - name: networks-route
     service: snapp-network
     paths:
       - /api/networks
     strip_path: false
-    tags: [snapp, network]
+    tags: [snapp, network, protected]
 
   - name: content-route
     service: snapp-content
     paths:
       - /api/content
     strip_path: false
-    tags: [snapp, content]
+    tags: [snapp, content, protected]
 
   - name: intel-route
     service: snapp-intelligence
     paths:
       - /api/intel
     strip_path: false
-    tags: [snapp, intelligence]
+    tags: [snapp, intelligence, protected]
 
   - name: tx-route
     service: snapp-transaction
     paths:
       - /api/tx
     strip_path: false
-    tags: [snapp, transaction]
+    tags: [snapp, transaction, protected]
 
   - name: notif-route
     service: snapp-notification
     paths:
       - /api/notif
     strip_path: false
-    tags: [snapp, notification]
+    tags: [snapp, notification, protected]
 
   - name: linkedin-route
     service: snapp-linkedin
     paths:
       - /api/linkedin
     strip_path: false
-    tags: [snapp, linkedin]
+    tags: [snapp, linkedin, protected]
+
+# ─── Consumers ────────────────────────────────────────────────
+consumers:
+  - username: snapp-auth-issuer
+    tags: [snapp, auth]
+    jwt_secrets:
+      - key: snapp-auth
+        algorithm: RS256
+        rsa_public_key: |
+          -----BEGIN PUBLIC KEY-----
+          MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1JZWAT371UJfbEanDaj
+          9TUesahZQz4QTD+00tZV/3QbBU0fXzcElLtML5CWCm19Z3igr7alVw3fnKe8YPtN
+          pVHD09tkOPAEy0qE4r03YgR7sxfczyXUf94SgCFxBCKNCx0AYIE5mr5Gc1B8+Rse
+          zGLtuZ+ckajG/9pY3AeybKcU9mMs78AxAXkJ1WEs6KYsiERygxtkGjbfVFYQP1hg
+          +i+CjT4EpQc95kp+bF35l7DL97FJUMghA7kH1eohOBChX28Vx2CL4iOiATD6eAgJ
+          PPBkkq0wQpr6ckwhUo+ufKFzSaSkbh3kDbdC+hsLBCbUMYvJGptkf+hLydQUi9El
+          GwIDAQAB
+          -----END PUBLIC KEY-----
 
 # ─── Global Plugins ──────────────────────────────────────────
 plugins:
@@ -130,3 +180,68 @@ plugins:
       path: /dev/stdout
       reopen: false
     tags: [snapp, logging]
+
+  # ─── JWT Plugin (per protected route) ─────────────────────
+  - name: jwt
+    route: auth-logout-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
+
+  - name: jwt
+    route: users-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
+
+  - name: jwt
+    route: networks-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
+
+  - name: jwt
+    route: content-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
+
+  - name: jwt
+    route: intel-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
+
+  - name: jwt
+    route: tx-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
+
+  - name: jwt
+    route: notif-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
+
+  - name: jwt
+    route: linkedin-route
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+    tags: [snapp, jwt]
