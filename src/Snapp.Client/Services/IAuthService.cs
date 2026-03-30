@@ -8,4 +8,5 @@ public interface IAuthService
     Task<MessageResponse> RequestMagicLinkAsync(string email);
     Task<TokenResponse> ValidateCodeAsync(string code);
     Task<TokenResponse> RefreshAsync(string refreshToken);
+    Task LogoutAsync();
 }

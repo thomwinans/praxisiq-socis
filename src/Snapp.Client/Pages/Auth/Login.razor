@@ -4,14 +4,40 @@
 <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-16">
     <MudCard Elevation="1" Class="pa-4">
         <MudCardHeader>
-            <MudText Typo="Typo.h4" Align="Align.Center">Sign In</MudText>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h4" Align="Align.Center">Sign In</MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mt-1">
+                    Enter your email to receive a magic login link
+                </MudText>
+            </CardHeaderContent>
         </MudCardHeader>
         <MudCardContent>
             @if (_sent)
             {
                 <MudAlert Severity="Severity.Success" Class="mb-4">
-                    Check your email for a login link.
+                    Check your email for a login link. It may take a moment to arrive.
                 </MudAlert>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Disabled="@_loading"
+                           OnClick="SendAgainAsync">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Send Again
+                </MudButton>
+            }
+            else if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           OnClick="RetryAsync">
+                    Try Again
+                </MudButton>
             }
             else
             {
@@ -27,11 +53,6 @@
                                   Validation="@(new Func<string, string?>(ValidateEmail))"
                                   Class="mb-4" />
 
-                    @if (_error is not null)
-                    {
-                        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
-                    }
-
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                FullWidth="true"
@@ -41,7 +62,7 @@
                         {
                             <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
                         }
-                        Send Magic Link
+                        Send Login Link
                     </MudButton>
                 </MudForm>
             }
@@ -78,12 +99,35 @@
         }
         catch
         {
-            // Always show success to avoid email enumeration
+            // Always show success to prevent email enumeration
             _sent = true;
         }
         finally
         {
             _loading = false;
         }
+    }
+
+    private async Task SendAgainAsync()
+    {
+        _loading = true;
+        try
+        {
+            await AuthService.RequestMagicLinkAsync(_email);
+        }
+        catch
+        {
+            // Silently handle — already in sent state
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void RetryAsync()
+    {
+        _error = null;
+        _sent = false;
     }
 }

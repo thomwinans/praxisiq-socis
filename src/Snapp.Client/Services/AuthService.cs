@@ -33,4 +33,16 @@ public class AuthService : IAuthService
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<TokenResponse>() ?? new TokenResponse();
     }
+
+    public async Task LogoutAsync()
+    {
+        try
+        {
+            await _http.PostAsync("auth/logout", null);
+        }
+        catch
+        {
+            // Best-effort — clear local tokens regardless
+        }
+    }
 }

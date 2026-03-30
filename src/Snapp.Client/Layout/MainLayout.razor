@@ -4,6 +4,7 @@
 @inject NetworkState NetworkState
 @inject INetworkService NetworkService
 @inject SnappAuthStateProvider AuthStateProvider
+@inject IAuthService AuthService
 
 <MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
@@ -188,6 +189,7 @@
 
     private async Task LogoutAsync()
     {
+        await AuthService.LogoutAsync();
         await AuthStateProvider.ClearTokensAsync();
         await NetworkState.ClearAsync();
         Navigation.NavigateTo("/login");
