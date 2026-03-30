@@ -39,7 +39,7 @@ services:
     image: changemakerstudiosus/papercut-smtp:latest
     container_name: snapp-papercut
     ports:
-      - "1025:25"
+      - "1025:2525"    # Papercut SMTP listens on 2525
       - "8025:8080"
     networks:
       - snapp-net

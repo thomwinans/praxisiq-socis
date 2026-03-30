@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Snapp.Shared/Snapp.Shared.csproj" />
+    <ProjectReference Include="../Snapp.TestHelpers/Snapp.TestHelpers.csproj" />
   </ItemGroup>
 
   <ItemGroup>

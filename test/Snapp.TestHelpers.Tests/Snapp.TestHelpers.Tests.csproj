@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
-    <RootNamespace>Snapp.E2E.Tests</RootNamespace>
+    <RootNamespace>Snapp.TestHelpers.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,7 +11,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
-    <PackageReference Include="Microsoft.Playwright" Version="1.*" />
     <PackageReference Include="xunit" Version="2.*" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
   </ItemGroup>
