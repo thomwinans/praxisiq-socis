@@ -1,9 +1,176 @@
 @page "/networks/{NetId}/feed"
 @attribute [Authorize]
+@inject IFeedService FeedService
+@inject INetworkService NetworkService
+@inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4">Network Feed</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Network Feed</MudText>
+
+@if (_loading && _posts.Count == 0)
+{
+    <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="my-4">
+        Failed to load feed.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else
+{
+    <PostComposer NetworkName="@_networkName"
+                  OnPostSubmitted="HandlePostSubmittedAsync" />
+
+    @if (_posts.Count == 0)
+    {
+        <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Filled.DynamicFeed" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No posts yet</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Be the first to share something with the network.</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        @foreach (var post in _posts)
+        {
+            <PostCard Post="post"
+                      UserReactions="GetUserReactions(post.PostId)"
+                      OnReactionToggled="@(reaction => ToggleReactionAsync(post, reaction))" />
+        }
+
+        @if (_nextToken is not null)
+        {
+            <div class="d-flex justify-center mt-4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           OnClick="LoadMoreAsync"
+                           Disabled="_loading">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Load More
+                </MudButton>
+            </div>
+        }
+    }
+}
 
 @code {
     [Parameter]
     public string NetId { get; set; } = string.Empty;
+
+    private List<PostResponse> _posts = new();
+    private string? _nextToken;
+    private bool _loading = true;
+    private bool _error;
+    private string _networkName = string.Empty;
+    private readonly Dictionary<string, HashSet<string>> _userReactions = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _posts.Clear();
+        _nextToken = null;
+        _userReactions.Clear();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        try
+        {
+            var network = await NetworkService.GetNetworkAsync(NetId);
+            _networkName = network?.Name ?? "this network";
+
+            var result = await FeedService.GetFeedAsync(NetId);
+            _posts = result.Posts;
+            _nextToken = result.NextToken;
+        }
+        catch
+        {
+            _error = true;
+        }
+        _loading = false;
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_nextToken is null || _loading) return;
+        _loading = true;
+        try
+        {
+            var result = await FeedService.GetFeedAsync(NetId, _nextToken);
+            _posts.AddRange(result.Posts);
+            _nextToken = result.NextToken;
+        }
+        catch
+        {
+            Snackbar.Add("Failed to load more posts.", Severity.Error);
+        }
+        _loading = false;
+    }
+
+    private async Task HandlePostSubmittedAsync((string Content, PostType PostType) args)
+    {
+        var request = new CreatePostRequest
+        {
+            NetworkId = NetId,
+            Content = args.Content,
+            PostType = args.PostType,
+        };
+        var post = await FeedService.CreatePostAsync(NetId, request);
+        if (post is not null)
+        {
+            _posts.Insert(0, post);
+            Snackbar.Add("Post published!", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to create post.", Severity.Error);
+        }
+    }
+
+    private async Task ToggleReactionAsync(PostResponse post, string reactionType)
+    {
+        var userReactions = GetUserReactions(post.PostId);
+        bool wasActive = userReactions.Contains(reactionType);
+
+        bool success;
+        if (wasActive)
+        {
+            success = await FeedService.RemoveReactionAsync(post.PostId, reactionType);
+            if (success)
+            {
+                userReactions.Remove(reactionType);
+                post.ReactionCounts[reactionType] = Math.Max(0, post.ReactionCounts.GetValueOrDefault(reactionType, 0) - 1);
+            }
+        }
+        else
+        {
+            success = await FeedService.ReactAsync(post.PostId, reactionType);
+            if (success)
+            {
+                userReactions.Add(reactionType);
+                post.ReactionCounts[reactionType] = post.ReactionCounts.GetValueOrDefault(reactionType, 0) + 1;
+            }
+        }
+
+        if (!success)
+        {
+            Snackbar.Add("Failed to update reaction.", Severity.Error);
+        }
+    }
+
+    private HashSet<string> GetUserReactions(string postId)
+    {
+        if (!_userReactions.TryGetValue(postId, out var reactions))
+        {
+            reactions = new HashSet<string>();
+            _userReactions[postId] = reactions;
+        }
+        return reactions;
+    }
 }

@@ -1,0 +1,82 @@
+@inject NavigationManager Navigation
+
+<MudCard Class="mb-3" Elevation="1">
+    <MudCardHeader>
+        <CardHeaderAvatar>
+            <MudAvatar Color="Color.Primary" Size="Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.Person" />
+            </MudAvatar>
+        </CardHeaderAvatar>
+        <CardHeaderContent>
+            <MudLink Href="@($"/profile/{Post.AuthorUserId}")" Typo="Typo.subtitle1" Style="font-weight:600;">
+                @Post.AuthorDisplayName
+            </MudLink>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @FormatTimeAgo(Post.CreatedAt)
+                @if (Post.PostType == PostType.Milestone)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined" Class="ml-2">Milestone</MudChip>
+                }
+            </MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <MudText Typo="Typo.body1">
+            @((MarkupString)RenderMarkdown(Post.Content))
+        </MudText>
+    </MudCardContent>
+    <MudCardActions>
+        @foreach (var reaction in _reactionTypes)
+        {
+            var count = Post.ReactionCounts.GetValueOrDefault(reaction.Key, 0);
+            var isActive = UserReactions.Contains(reaction.Key);
+            <MudBadge Content="@count"
+                      Color="Color.Primary"
+                      Overlap="false"
+                      Bordered="true"
+                      Visible="@(count > 0)">
+                <MudIconButton Icon="@reaction.Icon"
+                               Color="@(isActive ? Color.Primary : Color.Default)"
+                               Size="Size.Small"
+                               OnClick="@(() => OnReactionToggled.InvokeAsync(reaction.Key))" />
+            </MudBadge>
+        }
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired]
+    public PostResponse Post { get; set; } = null!;
+
+    [Parameter]
+    public HashSet<string> UserReactions { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<string> OnReactionToggled { get; set; }
+
+    private static readonly Markdig.MarkdownPipeline _pipeline =
+        new Markdig.MarkdownPipelineBuilder().Build();
+
+    private static readonly (string Key, string Icon)[] _reactionTypes =
+    {
+        ("like", Icons.Material.Filled.ThumbUp),
+        ("insightful", Icons.Material.Filled.Lightbulb),
+        ("support", Icons.Material.Filled.Favorite),
+    };
+
+    private static string RenderMarkdown(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+        return Markdig.Markdown.ToHtml(content, _pipeline);
+    }
+
+    private static string FormatTimeAgo(DateTime utcTime)
+    {
+        var elapsed = DateTime.UtcNow - utcTime;
+        if (elapsed.TotalMinutes < 1) return "just now";
+        if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
+        if (elapsed.TotalDays < 30) return $"{(int)elapsed.TotalDays}d ago";
+        return utcTime.ToString("MMM d, yyyy");
+    }
+}

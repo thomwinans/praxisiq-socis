@@ -1,0 +1,68 @@
+@inject ISnackbar Snackbar
+
+<MudCard Class="mb-4" Elevation="1">
+    <MudCardContent>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+            Posting to: @NetworkName
+        </MudText>
+        <MudTextField T="string"
+                      @bind-Value="_content"
+                      Label="What's on your mind?"
+                      Lines="3"
+                      MaxLength="5000"
+                      Counter="5000"
+                      Variant="Variant.Outlined"
+                      Disabled="_submitting" />
+        <div class="d-flex align-center justify-space-between mt-2">
+            <MudSelect T="PostType"
+                       @bind-Value="_postType"
+                       Label="Post Type"
+                       Variant="Variant.Outlined"
+                       Dense="true"
+                       Style="max-width:180px;">
+                <MudSelectItem T="PostType" Value="PostType.Text">Text</MudSelectItem>
+                <MudSelectItem T="PostType" Value="PostType.Milestone">Milestone</MudSelectItem>
+            </MudSelect>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="SubmitAsync"
+                       Disabled="@(string.IsNullOrWhiteSpace(_content) || _submitting)">
+                @if (_submitting)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Post
+            </MudButton>
+        </div>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter]
+    public string NetworkName { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<(string Content, PostType PostType)> OnPostSubmitted { get; set; }
+
+    private string _content = string.Empty;
+    private PostType _postType = PostType.Text;
+    private bool _submitting;
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_content) || _submitting) return;
+
+        _submitting = true;
+        try
+        {
+            await OnPostSubmitted.InvokeAsync((_content.Trim(), _postType));
+            _content = string.Empty;
+            _postType = PostType.Text;
+        }
+        catch
+        {
+            Snackbar.Add("Failed to create post.", Severity.Error);
+        }
+        _submitting = false;
+    }
+}
