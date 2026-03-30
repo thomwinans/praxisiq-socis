@@ -1,0 +1,132 @@
+_format_version: "3.0"
+_transform: true
+
+# ─── Services ─────────────────────────────────────────────────
+services:
+  - name: snapp-auth
+    url: http://snapp-auth:8080
+    tags: [snapp, auth]
+
+  - name: snapp-user
+    url: http://snapp-user:8080
+    tags: [snapp, user]
+
+  - name: snapp-network
+    url: http://snapp-network:8080
+    tags: [snapp, network]
+
+  - name: snapp-content
+    url: http://snapp-content:8080
+    tags: [snapp, content]
+
+  - name: snapp-intelligence
+    url: http://snapp-intelligence:8080
+    tags: [snapp, intelligence]
+
+  - name: snapp-transaction
+    url: http://snapp-transaction:8080
+    tags: [snapp, transaction]
+
+  - name: snapp-notification
+    url: http://snapp-notification:8080
+    tags: [snapp, notification]
+
+  - name: snapp-linkedin
+    url: http://snapp-linkedin:8080
+    tags: [snapp, linkedin]
+
+# ─── Routes ───────────────────────────────────────────────────
+routes:
+  - name: auth-route
+    service: snapp-auth
+    paths:
+      - /api/auth
+    strip_path: false
+    tags: [snapp, auth]
+
+  - name: users-route
+    service: snapp-user
+    paths:
+      - /api/users
+    strip_path: false
+    tags: [snapp, user]
+
+  - name: networks-route
+    service: snapp-network
+    paths:
+      - /api/networks
+    strip_path: false
+    tags: [snapp, network]
+
+  - name: content-route
+    service: snapp-content
+    paths:
+      - /api/content
+    strip_path: false
+    tags: [snapp, content]
+
+  - name: intel-route
+    service: snapp-intelligence
+    paths:
+      - /api/intel
+    strip_path: false
+    tags: [snapp, intelligence]
+
+  - name: tx-route
+    service: snapp-transaction
+    paths:
+      - /api/tx
+    strip_path: false
+    tags: [snapp, transaction]
+
+  - name: notif-route
+    service: snapp-notification
+    paths:
+      - /api/notif
+    strip_path: false
+    tags: [snapp, notification]
+
+  - name: linkedin-route
+    service: snapp-linkedin
+    paths:
+      - /api/linkedin
+    strip_path: false
+    tags: [snapp, linkedin]
+
+# ─── Global Plugins ──────────────────────────────────────────
+plugins:
+  - name: cors
+    config:
+      origins:
+        - http://localhost:5000
+        - http://localhost:8090
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Content-Type
+        - Authorization
+        - Accept
+      exposed_headers:
+        - X-Request-Id
+      credentials: true
+      max_age: 3600
+    tags: [snapp, cors]
+
+  - name: rate-limiting
+    config:
+      minute: 120
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+    tags: [snapp, rate-limiting]
+
+  - name: file-log
+    config:
+      path: /dev/stdout
+      reopen: false
+    tags: [snapp, logging]

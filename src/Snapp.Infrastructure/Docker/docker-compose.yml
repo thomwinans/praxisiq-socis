@@ -1,0 +1,101 @@
+services:
+  # ─── Data Tier ────────────────────────────────────────────────
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: snapp-dynamodb-local
+    ports:
+      - "8042:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD-SHELL", "java -version || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio:
+    image: minio/minio:latest
+    container_name: snapp-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  papercut:
+    image: changemakerstudiosus/papercut-smtp:latest
+    container_name: snapp-papercut
+    ports:
+      - "1025:25"
+      - "8025:8080"
+    networks:
+      - snapp-net
+
+  # ─── API Gateway (DB-less / declarative) ──────────────────────
+  kong:
+    image: kong:3.9
+    container_name: snapp-kong
+    ports:
+      - "8000:8000"   # Proxy
+      - "8001:8001"   # Admin API
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ../Kong/kong.yml:/etc/kong/kong.yml:ro
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── Dev Tools ────────────────────────────────────────────────
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: snapp-swagger-ui
+    ports:
+      - "8090:8080"
+    environment:
+      URLS: >-
+        [
+          {"url":"/specs/auth.json","name":"Auth"},
+          {"url":"/specs/user.json","name":"User"},
+          {"url":"/specs/network.json","name":"Network"},
+          {"url":"/specs/content.json","name":"Content"},
+          {"url":"/specs/intelligence.json","name":"Intelligence"},
+          {"url":"/specs/transaction.json","name":"Transaction"},
+          {"url":"/specs/notification.json","name":"Notification"},
+          {"url":"/specs/linkedin.json","name":"LinkedIn"}
+        ]
+    volumes:
+      - swagger-specs:/usr/share/nginx/html/specs
+    networks:
+      - snapp-net
+
+volumes:
+  minio-data:
+  swagger-specs:
+
+networks:
+  snapp-net:
+    driver: bridge
