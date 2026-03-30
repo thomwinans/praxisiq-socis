@@ -52,3 +52,14 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# SNAPP-specific
+keys/
+.pulumi/
+docker-data/
+secrets.json
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
+*.sln.iml
