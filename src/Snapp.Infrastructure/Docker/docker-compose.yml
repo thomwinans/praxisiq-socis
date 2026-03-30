@@ -9,11 +9,11 @@ services:
     networks:
       - snapp-net
     healthcheck:
-      test: ["CMD-SHELL", "java -version || exit 0"]
+      test: ["CMD-SHELL", "exit 0"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 3
+      start_period: 5s
 
   minio:
     image: minio/minio:latest
