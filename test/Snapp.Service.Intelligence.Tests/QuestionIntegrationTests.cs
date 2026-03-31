@@ -455,29 +455,43 @@ public class QuestionIntegrationTests : IAsyncLifetime
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
         var userId = ExtractUserId(jwt);
 
-        // Seed public/enrichment data directly in DynamoDB
-        await _dynamo.Client.PutItemAsync(new PutItemRequest
+        // Seed public data for ALL categories so EstimateValue questions for missing
+        // categories don't crowd ConfirmData out of the top-3 results
+        var seedCategories = new[]
         {
-            TableName = TableNames.Intelligence,
-            Item = new Dictionary<string, AttributeValue>
+            ("FinancialHealth", "financial", "AnnualRevenue", "750000"),
+            ("OwnerRisk", "owner_risk", "OwnerProductionPct", "60"),
+            ("Operations", "operations", "ChairUtilization", "75"),
+            ("ClientBase", "client_base", "ActivePatients", "1500"),
+            ("RevenueDiversification", "revenue_mix", "HygieneMix", "35"),
+            ("MarketPosition", "market", "MarketSharePct", "12"),
+        };
+
+        foreach (var (dimension, category, kpiName, kpiValue) in seedCategories)
+        {
+            await _dynamo.Client.PutItemAsync(new PutItemRequest
             {
-                ["PK"] = new($"{KeyPrefixes.PracticeData}{userId}"),
-                ["SK"] = new("DIM#FinancialHealth#financial"),
-                ["UserId"] = new(userId),
-                ["Dimension"] = new("FinancialHealth"),
-                ["Category"] = new("financial"),
-                ["ConfidenceContribution"] = new() { N = "0.0500" },
-                ["SubmittedAt"] = new(DateTime.UtcNow.ToString("O")),
-                ["Source"] = new("public"),
-                ["DataPoints"] = new()
+                TableName = TableNames.Intelligence,
+                Item = new Dictionary<string, AttributeValue>
                 {
-                    M = new Dictionary<string, AttributeValue>
+                    ["PK"] = new($"{KeyPrefixes.PracticeData}{userId}"),
+                    ["SK"] = new($"DIM#{dimension}#{category}"),
+                    ["UserId"] = new(userId),
+                    ["Dimension"] = new(dimension),
+                    ["Category"] = new(category),
+                    ["ConfidenceContribution"] = new() { N = "0.0500" },
+                    ["SubmittedAt"] = new(DateTime.UtcNow.ToString("O")),
+                    ["Source"] = new("public"),
+                    ["DataPoints"] = new()
                     {
-                        ["AnnualRevenue"] = new("750000"),
+                        M = new Dictionary<string, AttributeValue>
+                        {
+                            [kpiName] = new(kpiValue),
+                        },
                     },
                 },
-            },
-        });
+            });
+        }
 
         // Get questions — should include confirm_data for public data
         var questionsResp = await _http.GetAsync("/api/intel/questions");
