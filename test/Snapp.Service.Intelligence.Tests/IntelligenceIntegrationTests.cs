@@ -337,6 +337,299 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    // ── Career Stage Tests ───────────────────────────────────────
+
+    [Fact]
+    public async Task ComputeCareerStage_MaturePractitioner_ReturnsMatureStage()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-mature-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 15,
+            CoLocationCount = 0,
+            ProductionVolume = 1200000,
+            EntityType = "group",
+            ProviderCount = 3,
+            LocationCount = 1,
+            OwnerProductionPct = 45,
+            HasSuccessionPlan = true,
+            HasEntityFormation = true,
+            CeHoursRecent = 30,
+            ReputationScore = 80,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<CareerStageResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Stage.Should().Be("Mature");
+        body.ConfidenceLevel.Should().NotBeNullOrEmpty();
+        body.TriggerSignals.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task ComputeCareerStage_PreExitSolo_ReturnsPreExitWithRisks()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-preexit-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 25,
+            CoLocationCount = 0,
+            ProductionVolume = 600000,
+            EntityType = "solo",
+            ProviderCount = 1,
+            LocationCount = 1,
+            OwnerProductionPct = 92,
+            HasSuccessionPlan = false,
+            HasEntityFormation = true,
+            CeHoursRecent = 5,
+            ReputationScore = 70,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<CareerStageResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Stage.Should().Be("PreExit");
+        body.RiskFlags.Should().NotBeEmpty();
+        body.RiskFlags.Should().Contain(r => r.Type == "retirement_risk");
+        body.RiskFlags.Should().Contain(r => r.Type == "succession_risk");
+        body.RiskFlags.Should().Contain(r => r.Type == "key_person_dependency");
+    }
+
+    [Fact]
+    public async Task ComputeCareerStage_GrowthPractice_ReturnsGrowthStage()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-growth-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 5,
+            CoLocationCount = 0,
+            ProductionVolume = 900000,
+            EntityType = "group",
+            ProviderCount = 4,
+            LocationCount = 2,
+            OwnerProductionPct = 35,
+            HasSuccessionPlan = false,
+            HasEntityFormation = true,
+            CeHoursRecent = 40,
+            ReputationScore = 75,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<CareerStageResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Stage.Should().Be("Growth");
+    }
+
+    [Fact]
+    public async Task ComputeCareerStage_TrainingEntry_ReturnsTrainingStage()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-entry-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 1,
+            CoLocationCount = 0,
+            ProductionVolume = 0,
+            EntityType = "",
+            ProviderCount = 0,
+            LocationCount = 0,
+            OwnerProductionPct = 0,
+            HasSuccessionPlan = false,
+            HasEntityFormation = false,
+            CeHoursRecent = 50,
+            ReputationScore = 0,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<CareerStageResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Stage.Should().Be("TrainingEntry");
+    }
+
+    [Fact]
+    public async Task ComputeCareerStage_Associate_ReturnsAssociateStage()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-assoc-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 3,
+            CoLocationCount = 2,
+            ProductionVolume = 200000,
+            EntityType = "group",
+            ProviderCount = 1,
+            LocationCount = 1,
+            OwnerProductionPct = 30,
+            HasSuccessionPlan = false,
+            HasEntityFormation = false,
+            CeHoursRecent = 35,
+            ReputationScore = 50,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<CareerStageResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Stage.Should().Be("Associate");
+    }
+
+    [Fact]
+    public async Task GetCareerStage_AfterCompute_ReturnsSameStage()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-get-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 12,
+            CoLocationCount = 0,
+            ProductionVolume = 1000000,
+            EntityType = "group",
+            ProviderCount = 2,
+            LocationCount = 1,
+            OwnerProductionPct = 50,
+            HasSuccessionPlan = true,
+            HasEntityFormation = true,
+            CeHoursRecent = 25,
+            ReputationScore = 85,
+        });
+
+        var getResp = await _http.GetAsync("/api/intel/career-stage");
+        getResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var stage = await getResp.Content.ReadFromJsonAsync<CareerStageResponse>(JsonOptions);
+        stage.Should().NotBeNull();
+        stage!.Stage.Should().Be("Mature");
+    }
+
+    [Fact]
+    public async Task GetCareerStage_NoCompute_ReturnsNotFound()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-nf-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.GetAsync("/api/intel/career-stage");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CareerStageHistory_AfterMultipleComputes_ReturnsTransitions()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-hist-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        // First compute — entry stage
+        await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 1,
+            CoLocationCount = 0,
+            ProductionVolume = 0,
+            EntityType = "",
+            ProviderCount = 0,
+            LocationCount = 0,
+            OwnerProductionPct = 0,
+            HasSuccessionPlan = false,
+            HasEntityFormation = false,
+            CeHoursRecent = 40,
+            ReputationScore = 0,
+        });
+
+        // Second compute — growth stage
+        await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 6,
+            CoLocationCount = 0,
+            ProductionVolume = 800000,
+            EntityType = "group",
+            ProviderCount = 3,
+            LocationCount = 2,
+            OwnerProductionPct = 40,
+            HasSuccessionPlan = false,
+            HasEntityFormation = true,
+            CeHoursRecent = 30,
+            ReputationScore = 70,
+        });
+
+        var histResp = await _http.GetAsync("/api/intel/career-stage/history");
+        histResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var history = await histResp.Content.ReadFromJsonAsync<CareerStageHistoryResponse>(JsonOptions);
+        history!.History.Count.Should().BeGreaterOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task ComputeCareerStage_NoAuth_ReturnsUnauthorized()
+    {
+        _http.DefaultRequestHeaders.Authorization = null;
+
+        var response = await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 5,
+            ProviderCount = 1,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ComputeCareerStage_OverextendedGrowth_ReturnsOverextensionRisk()
+    {
+        var jwt = await AuthenticateAsync($"intel-stage-overext-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.PostAsJsonAsync("/api/intel/career-stage/compute", new
+        {
+            TenureYears = 7,
+            CoLocationCount = 0,
+            ProductionVolume = 2000000,
+            EntityType = "group",
+            ProviderCount = 8,
+            LocationCount = 4,
+            OwnerProductionPct = 20,
+            HasSuccessionPlan = true,
+            HasEntityFormation = true,
+            CeHoursRecent = 40,
+            ReputationScore = 85,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<CareerStageResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Stage.Should().Be("Growth");
+        body.RiskFlags.Should().Contain(r => r.Type == "overextension");
+    }
+
     // ── Helpers ──────────────────────────────────────────────────
 
     private async Task<string?> AuthenticateAsync(string email)

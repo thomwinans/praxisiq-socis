@@ -28,6 +28,7 @@ public static class ErrorCodes
     public const string DocumentNotFound = "DOCUMENT_NOT_FOUND";
     public const string NotificationNotFound = "NOTIFICATION_NOT_FOUND";
     public const string ValuationNotFound = "VALUATION_NOT_FOUND";
+    public const string CareerStageNotFound = "CAREER_STAGE_NOT_FOUND";
 
     // Rate Limit (429)
     public const string RateLimitExceeded = "RATE_LIMIT_EXCEEDED";

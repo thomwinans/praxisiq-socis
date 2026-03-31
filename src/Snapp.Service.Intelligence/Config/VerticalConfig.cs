@@ -8,6 +8,27 @@ public class VerticalConfig
     public List<ContributionCategoryConfig> ContributionCategories { get; set; } = new();
     public decimal BaseConfidence { get; set; } = 40m;
     public decimal MaxConfidence { get; set; } = 95m;
+    public List<CareerStageRule> CareerStageRules { get; set; } = new();
+}
+
+public class CareerStageRule
+{
+    public string Stage { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public int Priority { get; set; }
+    public decimal? MinTenureYears { get; set; }
+    public decimal? MaxTenureYears { get; set; }
+    public int? MinProviderCount { get; set; }
+    public int? MaxProviderCount { get; set; }
+    public int? MinLocationCount { get; set; }
+    public decimal? MinProductionVolume { get; set; }
+    public decimal? MaxOwnerProductionPct { get; set; }
+    public decimal? MinOwnerProductionPct { get; set; }
+    public bool? RequiresCoLocation { get; set; }
+    public bool? RequiresEntityFormation { get; set; }
+    public bool? RequiresSuccessionPlan { get; set; }
+    public decimal? MaxCeHoursRecent { get; set; }
+    public List<string> EntityTypes { get; set; } = new();
 }
 
 public class DimensionConfig

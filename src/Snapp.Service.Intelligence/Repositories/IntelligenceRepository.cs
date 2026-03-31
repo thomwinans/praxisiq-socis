@@ -296,6 +296,138 @@ public class IntelligenceRepository : IIntelligenceRepository
         return response.Items.Select(MapPracticeData).ToList();
     }
 
+    // ── Career Stage ─────────────────────────────────────────────
+
+    public async Task SaveCareerStageAsync(string userId, Handlers.CareerStageResult result)
+    {
+        var now = DateTime.UtcNow;
+        var timestamp = now.ToString("O");
+
+        var stageItem = BuildCareerStageItem(userId, result, timestamp);
+
+        var currentItem = new Dictionary<string, AttributeValue>(stageItem)
+        {
+            ["PK"] = new($"{KeyPrefixes.Stage}{userId}"),
+            ["SK"] = new(SortKeyValues.Current),
+        };
+
+        var snapItem = new Dictionary<string, AttributeValue>(stageItem)
+        {
+            ["PK"] = new($"{KeyPrefixes.Stage}{userId}"),
+            ["SK"] = new($"SNAP#{timestamp}"),
+        };
+
+        await _db.TransactWriteItemsAsync(new TransactWriteItemsRequest
+        {
+            TransactItems =
+            [
+                new TransactWriteItem { Put = new Put { TableName = TableNames.Intelligence, Item = currentItem } },
+                new TransactWriteItem { Put = new Put { TableName = TableNames.Intelligence, Item = snapItem } },
+            ],
+        });
+    }
+
+    public async Task<Endpoints.CareerStageResponse?> GetCurrentCareerStageAsync(string userId)
+    {
+        var response = await _db.GetItemAsync(new GetItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Stage}{userId}"),
+                ["SK"] = new(SortKeyValues.Current),
+            },
+        });
+
+        return response.IsItemSet ? MapCareerStage(response.Item) : null;
+    }
+
+    public async Task<List<Endpoints.CareerStageResponse>> GetCareerStageHistoryAsync(string userId, int limit = 20)
+    {
+        var response = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Stage}{userId}"),
+                [":prefix"] = new("SNAP#"),
+            },
+            ScanIndexForward = false,
+            Limit = Math.Min(limit, 50),
+        });
+
+        return response.Items.Select(MapCareerStage).ToList();
+    }
+
+    public async Task SaveRiskFlagsAsync(string userId, List<Handlers.RiskFlag> riskFlags)
+    {
+        if (riskFlags.Count == 0) return;
+
+        var now = DateTime.UtcNow.ToString("O");
+
+        // Delete existing risk flags for user, then write new ones
+        // First get existing
+        var existingResponse = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Risk}{userId}"),
+            },
+        });
+
+        var transactItems = new List<TransactWriteItem>();
+
+        // Delete existing risk flags
+        foreach (var existing in existingResponse.Items)
+        {
+            transactItems.Add(new TransactWriteItem
+            {
+                Delete = new Delete
+                {
+                    TableName = TableNames.Intelligence,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["PK"] = existing["PK"],
+                        ["SK"] = existing["SK"],
+                    },
+                },
+            });
+        }
+
+        // Add new risk flags
+        foreach (var risk in riskFlags)
+        {
+            var item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Risk}{userId}"),
+                ["SK"] = new(risk.Type),
+                ["UserId"] = new(userId),
+                ["RiskType"] = new(risk.Type),
+                ["Severity"] = new(risk.Severity),
+                ["Description"] = new(risk.Description),
+                ["DetectedAt"] = new(now),
+                ["GSI2PK"] = new($"RISK#{risk.Severity}"),
+                ["GSI2SK"] = new($"{risk.Type}#{userId}"),
+            };
+            transactItems.Add(new TransactWriteItem
+            {
+                Put = new Put { TableName = TableNames.Intelligence, Item = item },
+            });
+        }
+
+        // DynamoDB transactions limited to 100 items
+        if (transactItems.Count > 0)
+        {
+            await _db.TransactWriteItemsAsync(new TransactWriteItemsRequest
+            {
+                TransactItems = transactItems,
+            });
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> BuildScoreItem(
@@ -345,6 +477,62 @@ public class IntelligenceRepository : IIntelligenceRepository
 
         return item;
     }
+
+    private static Dictionary<string, AttributeValue> BuildCareerStageItem(
+        string userId, Handlers.CareerStageResult result, string timestamp)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["UserId"] = new(userId),
+            ["Stage"] = new(result.Stage),
+            ["DisplayName"] = new(result.DisplayName),
+            ["ConfidenceLevel"] = new(result.ConfidenceLevel),
+            ["ComputedAt"] = new(timestamp),
+        };
+
+        if (result.TriggerSignals.Count > 0)
+        {
+            item["TriggerSignals"] = new() { L = result.TriggerSignals.Select(s => new AttributeValue(s)).ToList() };
+        }
+
+        if (result.RiskFlags.Count > 0)
+        {
+            item["RiskFlags"] = new()
+            {
+                L = result.RiskFlags.Select(r => new AttributeValue
+                {
+                    M = new Dictionary<string, AttributeValue>
+                    {
+                        ["Type"] = new(r.Type),
+                        ["Severity"] = new(r.Severity),
+                        ["Description"] = new(r.Description),
+                    },
+                }).ToList(),
+            };
+        }
+
+        return item;
+    }
+
+    private static Endpoints.CareerStageResponse MapCareerStage(Dictionary<string, AttributeValue> item) => new()
+    {
+        UserId = item.TryGetValue("UserId", out var uid) ? uid.S : string.Empty,
+        Stage = item.TryGetValue("Stage", out var stage) ? stage.S : string.Empty,
+        DisplayName = item.TryGetValue("DisplayName", out var dn) ? dn.S : string.Empty,
+        ConfidenceLevel = item.TryGetValue("ConfidenceLevel", out var cl) ? cl.S : "low",
+        TriggerSignals = item.TryGetValue("TriggerSignals", out var ts) && ts.L is not null
+            ? ts.L.Select(a => a.S).ToList()
+            : new List<string>(),
+        RiskFlags = item.TryGetValue("RiskFlags", out var rf) && rf.L is not null
+            ? rf.L.Select(a => new Endpoints.RiskFlagResponse
+            {
+                Type = a.M.TryGetValue("Type", out var t) ? t.S : string.Empty,
+                Severity = a.M.TryGetValue("Severity", out var s) ? s.S : "medium",
+                Description = a.M.TryGetValue("Description", out var d) ? d.S : string.Empty,
+            }).ToList()
+            : new List<Endpoints.RiskFlagResponse>(),
+        ComputedAt = item.TryGetValue("ComputedAt", out var ca) ? DateTime.Parse(ca.S) : DateTime.MinValue,
+    };
 
     private static PracticeData MapPracticeData(Dictionary<string, AttributeValue> item) => new()
     {

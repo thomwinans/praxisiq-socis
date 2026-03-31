@@ -110,5 +110,58 @@
     { "category": "market", "dimension": "MarketPosition", "confidenceWeight": 0.08, "displayName": "Market Position Data" }
   ],
   "baseConfidence": 40.0,
-  "maxConfidence": 95.0
+  "maxConfidence": 95.0,
+  "careerStageRules": [
+    {
+      "stage": "PreExit",
+      "displayName": "Pre-Exit",
+      "priority": 1,
+      "minTenureYears": 20,
+      "maxProviderCount": 2,
+      "maxCeHoursRecent": 10,
+      "entityTypes": ["solo", "partnership"]
+    },
+    {
+      "stage": "Mature",
+      "displayName": "Mature",
+      "priority": 2,
+      "minTenureYears": 10,
+      "minProviderCount": 1,
+      "entityTypes": []
+    },
+    {
+      "stage": "Growth",
+      "displayName": "Growth",
+      "priority": 3,
+      "minTenureYears": 3,
+      "minProviderCount": 2,
+      "minLocationCount": 1,
+      "minProductionVolume": 500000,
+      "entityTypes": []
+    },
+    {
+      "stage": "AcquisitionLaunch",
+      "displayName": "Acquisition / Launch",
+      "priority": 4,
+      "maxTenureYears": 5,
+      "requiresEntityFormation": true,
+      "minProductionVolume": 100000,
+      "entityTypes": ["solo", "group", "partnership"]
+    },
+    {
+      "stage": "Associate",
+      "displayName": "Junior / Associate",
+      "priority": 5,
+      "requiresCoLocation": true,
+      "maxProviderCount": 1,
+      "entityTypes": []
+    },
+    {
+      "stage": "TrainingEntry",
+      "displayName": "Training / Entry",
+      "priority": 6,
+      "maxTenureYears": 2,
+      "entityTypes": []
+    }
+  ]
 }
