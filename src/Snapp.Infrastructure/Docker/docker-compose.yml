@@ -357,6 +357,7 @@ services:
     environment:
       URLS: >-
         [
+          {"url":"/specs/snapp-api.json","name":"SNAPP API (merged)"},
           {"url":"/specs/auth.json","name":"Auth"},
           {"url":"/specs/user.json","name":"User"},
           {"url":"/specs/network.json","name":"Network"},
