@@ -124,7 +124,7 @@ public static class QuestionEndpoints
         [FromBody] AnswerQuestionRequest body,
         HttpRequest request,
         IntelligenceRepository repo,
-        ScoringEngine scoringEngine,
+        UnlockEngine unlockEngine,
         ILogger<Program> logger)
     {
         var traceId = EndpointHelpers.NewTraceId();
@@ -158,6 +158,9 @@ public static class QuestionEndpoints
         // Remove from pending
         await repo.DeletePendingQuestionAsync(userId, questionId);
 
+        // Process unlock via UnlockEngine — creates UNLOCK# record, updates PDATA#, recomputes confidence
+        var unlockResult = await unlockEngine.ProcessAnswerAsync(userId, answer, pending);
+
         // Update progression
         var progression = await repo.GetProgressionAsync(userId);
         progression.TotalAnswered++;
@@ -178,22 +181,23 @@ public static class QuestionEndpoints
         }
         progression.LastStreakDate = answer.AnsweredAt;
 
-        // Process unlock: determine what was unlocked
-        var unlockDescription = ProcessUnlock(pending, body.Answer);
-        if (!string.IsNullOrEmpty(unlockDescription))
+        if (unlockResult is not null)
             progression.TotalUnlocks++;
 
         await repo.SaveProgressionAsync(userId, progression);
 
         logger.LogInformation(
-            "Question answered userId={UserId}, questionId={QuestionId}, type={Type}, traceId={TraceId}",
-            userId, questionId, pending.Type, traceId);
+            "Question answered userId={UserId}, questionId={QuestionId}, type={Type}, unlockType={UnlockType}, traceId={TraceId}",
+            userId, questionId, pending.Type, unlockResult?.Type ?? "none", traceId);
 
         return Results.Ok(new AnswerQuestionResponse
         {
             QuestionId = questionId,
             Accepted = true,
-            UnlockDescription = unlockDescription,
+            UnlockDescription = unlockResult?.Description,
+            UnlockType = unlockResult?.Type,
+            IntelligenceRevealed = unlockResult?.IntelligenceRevealed,
+            ConfidenceAfter = unlockResult?.ConfidenceAfter,
             Progression = new ProgressionSummary
             {
                 TotalAnswered = progression.TotalAnswered,
@@ -223,22 +227,6 @@ public static class QuestionEndpoints
         });
     }
 
-    private static string? ProcessUnlock(PendingQuestionItem question, string answer)
-    {
-        // Determine unlock based on question type and answer
-        return question.Type switch
-        {
-            "ConfirmData" when answer.Equals("Yes", StringComparison.OrdinalIgnoreCase) =>
-                $"Confirmed! Your {question.Category} data is verified — confidence boost applied.",
-            "ConfirmData" when answer.Equals("No", StringComparison.OrdinalIgnoreCase) =>
-                $"Thanks for the correction — we'll update your {question.Category} data.",
-            "ConfirmRelationship" when answer.Equals("Yes", StringComparison.OrdinalIgnoreCase) =>
-                "Relationship confirmed — added to your referral network. Peer comparisons unlocked.",
-            "EstimateValue" =>
-                $"Got it! Your {question.Dimension} score has been updated with this estimate.",
-            _ => null,
-        };
-    }
 }
 
 // ── Request/Response DTOs ────────────────────────────────────
@@ -270,6 +258,9 @@ public class AnswerQuestionResponse
     public string QuestionId { get; set; } = string.Empty;
     public bool Accepted { get; set; }
     public string? UnlockDescription { get; set; }
+    public string? UnlockType { get; set; }
+    public string? IntelligenceRevealed { get; set; }
+    public decimal? ConfidenceAfter { get; set; }
     public ProgressionSummary Progression { get; set; } = new();
 }
 

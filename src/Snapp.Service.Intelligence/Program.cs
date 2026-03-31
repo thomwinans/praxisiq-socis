@@ -55,6 +55,9 @@ builder.Services.AddSingleton<ValuationEngine>();
 // Gap Detection Engine
 builder.Services.AddSingleton<GapDetectionEngine>();
 
+// Unlock Engine
+builder.Services.AddSingleton<UnlockEngine>();
+
 // JSON structured logging
 builder.Logging.AddJsonConsole(options =>
 {

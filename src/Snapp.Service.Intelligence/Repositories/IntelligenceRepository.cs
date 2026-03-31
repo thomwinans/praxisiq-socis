@@ -684,6 +684,57 @@ public class IntelligenceRepository : IIntelligenceRepository
         };
     }
 
+    public async Task SaveUnlockAsync(Handlers.UnlockRecord unlock)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.Unlock}{unlock.UserId}"),
+            ["SK"] = new(unlock.UnlockId),
+            ["UnlockId"] = new(unlock.UnlockId),
+            ["UserId"] = new(unlock.UserId),
+            ["QuestionId"] = new(unlock.QuestionId),
+            ["Type"] = new(unlock.Type),
+            ["Description"] = new(unlock.Description),
+            ["ConfidenceAfter"] = new() { N = unlock.ConfidenceAfter.ToString("F2") },
+            ["CreatedAt"] = new(unlock.CreatedAt.ToString("O")),
+        };
+
+        if (!string.IsNullOrEmpty(unlock.IntelligenceRevealed))
+            item["IntelligenceRevealed"] = new(unlock.IntelligenceRevealed);
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = item,
+        });
+    }
+
+    public async Task<List<Handlers.UnlockRecord>> GetUnlocksAsync(string userId)
+    {
+        var response = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Unlock}{userId}"),
+            },
+            ScanIndexForward = false,
+        });
+
+        return response.Items.Select(item => new Handlers.UnlockRecord
+        {
+            UnlockId = item.TryGetValue("UnlockId", out var uid) ? uid.S : string.Empty,
+            UserId = item.TryGetValue("UserId", out var u) ? u.S : string.Empty,
+            QuestionId = item.TryGetValue("QuestionId", out var qid) ? qid.S : string.Empty,
+            Type = item.TryGetValue("Type", out var t) ? t.S : string.Empty,
+            Description = item.TryGetValue("Description", out var d) ? d.S : string.Empty,
+            IntelligenceRevealed = item.TryGetValue("IntelligenceRevealed", out var ir) ? ir.S : null,
+            ConfidenceAfter = item.TryGetValue("ConfidenceAfter", out var ca) ? decimal.Parse(ca.N) : 0m,
+            CreatedAt = item.TryGetValue("CreatedAt", out var c) ? DateTime.Parse(c.S) : DateTime.MinValue,
+        }).ToList();
+    }
+
     public async Task SaveProgressionAsync(string userId, Endpoints.QuestionProgression progression)
     {
         var item = new Dictionary<string, AttributeValue>
