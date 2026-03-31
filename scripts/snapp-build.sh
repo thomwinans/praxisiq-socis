@@ -389,6 +389,68 @@ main() {
 
     generate_report
 
+    # ── Vera: Trust-But-Verify Pass ───────────────────────────────────────
+    # After all sprint tasks complete, Vera verifies the entire system.
+    # Vera only runs if there were no task failures (no point verifying
+    # a broken sprint) and if --dry-run is not set.
+    local any_failed=false
+    while IFS= read -r task_id; do
+        local s; s=$(get_task_status "$task_id")
+        [[ "$s" == "failed" || "$s" == "blocked" ]] && any_failed=true
+    done < <(jq -r '.tasks[].id' "$SPRINT_FILE")
+
+    if [[ "$any_failed" == "false" && "$DRY_RUN" == "false" ]]; then
+        local vera_file="${AGENTS_DIR}/vera.md"
+        if [[ -f "$vera_file" ]]; then
+            local sprint_name
+            sprint_name=$(jq -r '.sprint' "$SPRINT_FILE")
+            local vera_log="${LOG_DIR}/vera_${sprint_name}_${TIMESTAMP}.log"
+
+            log ""
+            log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            log "VERA: Trust-But-Verify pass for Sprint ${sprint_name}"
+            log "LOG: ${vera_log}"
+            log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            local vera_persona
+            vera_persona=$(cat "$vera_file")
+
+            local vera_prompt
+            vera_prompt="$(cat <<VERA_EOF
+${vera_persona}
+
+---
+
+# Current Task: Verify Sprint ${sprint_name}
+
+You are running the post-sprint verification for Sprint ${sprint_name}.
+Follow your checklist exactly. Do not skip steps. Do not trust prior reports.
+
+Working directory: ${PROJECT_ROOT}
+
+When finished, create a git commit with message: "[VERA] Sprint ${sprint_name} verification"
+VERA_EOF
+)"
+            local vera_exit=0
+            claude \
+                --print \
+                --dangerously-skip-permissions \
+                --model "${CLAUDE_MODEL:-opus}" \
+                --verbose \
+                --max-budget-usd "${CLAUDE_BUDGET:-5.00}" \
+                "$vera_prompt" \
+                > "$vera_log" 2>&1 || vera_exit=$?
+
+            if [[ $vera_exit -eq 0 ]]; then
+                log "VERA: PASSED — Sprint ${sprint_name} verified"
+            else
+                log "VERA: ISSUES FOUND — check ${vera_log}"
+            fi
+        fi
+    else
+        log "VERA: Skipped — sprint has failures, nothing to verify"
+    fi
+
     log ""
     log "═══════════════════════════════════════════════"
     log "  BUILD COMPLETE"
