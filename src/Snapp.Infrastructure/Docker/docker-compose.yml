@@ -185,6 +185,39 @@ services:
       retries: 5
       start_period: 10s
 
+  snapp-notification:
+    build:
+      context: ../../../
+      dockerfile: src/Snapp.Service.Notification/Dockerfile
+    container_name: snapp-notification
+    ports:
+      - "8087:8080"
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+      papercut:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AWS_ACCESS_KEY_ID: fakeAccessKey
+      AWS_SECRET_ACCESS_KEY: fakeSecretKey
+      AWS_DEFAULT_REGION: us-east-1
+      DynamoDB__ServiceURL: http://dynamodb-local:8000
+      Encryption__KeyFilePath: /keys/dev-master.key
+      Email__SmtpHost: papercut
+      Email__SmtpPort: "2525"
+      Email__FromAddress: noreply@snapp.local
+    volumes:
+      - ./keys:/keys:ro
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # ─── Dev Tools ────────────────────────────────────────────────
   swagger-ui:
     image: swaggerapi/swagger-ui:latest
