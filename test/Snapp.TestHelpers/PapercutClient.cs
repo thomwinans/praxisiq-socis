@@ -109,6 +109,11 @@ public sealed class PapercutClient : IDisposable
     {
         var encodedId = Uri.EscapeDataString(id);
         var response = await _http.GetAsync($"/api/messages/{encodedId}");
+
+        // Message may have been deleted by a parallel test between list and detail fetch
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
         response.EnsureSuccessStatusCode();
 
         var detail = await response.Content.ReadFromJsonAsync<PapercutMessageDetail>(JsonOptions);
