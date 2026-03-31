@@ -1,0 +1,114 @@
+{
+  "vertical": "dental",
+  "displayName": "Dental Practice",
+  "dimensions": [
+    {
+      "name": "FinancialHealth",
+      "displayName": "Financial Health",
+      "weight": 0.25,
+      "thresholds": {
+        "strong": 75,
+        "acceptable": 50,
+        "weak": 25
+      },
+      "kpis": [
+        { "name": "AnnualRevenue", "displayName": "Annual Revenue", "unit": "USD", "category": "financial" },
+        { "name": "OverheadRatio", "displayName": "Overhead Ratio", "unit": "%", "category": "financial" },
+        { "name": "CollectionsRate", "displayName": "Collections Rate", "unit": "%", "category": "financial" },
+        { "name": "ProfitMargin", "displayName": "Profit Margin", "unit": "%", "category": "financial" },
+        { "name": "RevenuePerProvider", "displayName": "Revenue Per Provider", "unit": "USD", "category": "financial" }
+      ]
+    },
+    {
+      "name": "OwnerRisk",
+      "displayName": "Owner / Key-Person Risk",
+      "weight": 0.20,
+      "thresholds": {
+        "strong": 75,
+        "acceptable": 50,
+        "weak": 25
+      },
+      "kpis": [
+        { "name": "OwnerProductionPct", "displayName": "Owner Production %", "unit": "%", "category": "owner_risk" },
+        { "name": "ProviderCount", "displayName": "Provider Count", "unit": "count", "category": "owner_risk" },
+        { "name": "SuccessionPlanExists", "displayName": "Succession Plan", "unit": "bool", "category": "owner_risk" },
+        { "name": "KeyPersonDependency", "displayName": "Key-Person Dependency Score", "unit": "score", "category": "owner_risk" }
+      ]
+    },
+    {
+      "name": "Operations",
+      "displayName": "Operations",
+      "weight": 0.20,
+      "thresholds": {
+        "strong": 75,
+        "acceptable": 50,
+        "weak": 25
+      },
+      "kpis": [
+        { "name": "ChairUtilization", "displayName": "Chair Utilization", "unit": "%", "category": "operations" },
+        { "name": "HygieneDaysPerWeek", "displayName": "Hygiene Days / Week", "unit": "days", "category": "operations" },
+        { "name": "NewPatientsPerMonth", "displayName": "New Patients / Month", "unit": "count", "category": "operations" },
+        { "name": "StaffToProviderRatio", "displayName": "Staff to Provider Ratio", "unit": "ratio", "category": "operations" },
+        { "name": "TreatmentAcceptanceRate", "displayName": "Treatment Acceptance Rate", "unit": "%", "category": "operations" }
+      ]
+    },
+    {
+      "name": "ClientBase",
+      "displayName": "Client Base",
+      "weight": 0.15,
+      "thresholds": {
+        "strong": 75,
+        "acceptable": 50,
+        "weak": 25
+      },
+      "kpis": [
+        { "name": "ActivePatientCount", "displayName": "Active Patients", "unit": "count", "category": "client_base" },
+        { "name": "PatientRetentionRate", "displayName": "Patient Retention Rate", "unit": "%", "category": "client_base" },
+        { "name": "OnlineRating", "displayName": "Online Rating", "unit": "stars", "category": "client_base" },
+        { "name": "ReviewCount", "displayName": "Review Count", "unit": "count", "category": "client_base" }
+      ]
+    },
+    {
+      "name": "RevenueDiversification",
+      "displayName": "Revenue Diversification",
+      "weight": 0.10,
+      "thresholds": {
+        "strong": 75,
+        "acceptable": 50,
+        "weak": 25
+      },
+      "kpis": [
+        { "name": "InsuranceMixPct", "displayName": "Insurance Mix %", "unit": "%", "category": "revenue_mix" },
+        { "name": "FeeForServicePct", "displayName": "Fee-for-Service %", "unit": "%", "category": "revenue_mix" },
+        { "name": "SpecialtyServicePct", "displayName": "Specialty Service Revenue %", "unit": "%", "category": "revenue_mix" },
+        { "name": "TopPayerConcentration", "displayName": "Top Payer Concentration", "unit": "%", "category": "revenue_mix" }
+      ]
+    },
+    {
+      "name": "MarketPosition",
+      "displayName": "Market Position",
+      "weight": 0.10,
+      "thresholds": {
+        "strong": 75,
+        "acceptable": 50,
+        "weak": 25
+      },
+      "kpis": [
+        { "name": "PractitionerDensity", "displayName": "Dentists per 100K Pop", "unit": "ratio", "category": "market" },
+        { "name": "CompetitorCount", "displayName": "Competitors in Area", "unit": "count", "category": "market" },
+        { "name": "DsoPresence", "displayName": "DSO Presence", "unit": "bool", "category": "market" },
+        { "name": "PopulationGrowthRate", "displayName": "Population Growth Rate", "unit": "%", "category": "market" }
+      ]
+    }
+  ],
+  "contributionCategories": [
+    { "category": "financial", "dimension": "FinancialHealth", "confidenceWeight": 0.15, "displayName": "Financial Data" },
+    { "category": "owner_risk", "dimension": "OwnerRisk", "confidenceWeight": 0.12, "displayName": "Owner & Key-Person Data" },
+    { "category": "operations", "dimension": "Operations", "confidenceWeight": 0.12, "displayName": "Operational Data" },
+    { "category": "client_base", "dimension": "ClientBase", "confidenceWeight": 0.10, "displayName": "Client Base Data" },
+    { "category": "revenue_mix", "dimension": "RevenueDiversification", "confidenceWeight": 0.08, "displayName": "Revenue Mix Data" },
+    { "category": "market", "dimension": "MarketPosition", "confidenceWeight": 0.08, "displayName": "Market Position Data" }
+  ],
+  "baseConfidence": 40.0,
+  "maxConfidence": 95.0
+}
