@@ -7,7 +7,7 @@
     {
       "name": "FinancialHealth",
       "displayName": "Financial Health",
-      "weight": 0.25,
+      "weight": 0.22,
       "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
       "kpis": [
         { "name": "AnnualRevenue", "displayName": "Annual Revenue", "unit": "USD", "category": "Revenue" },
@@ -20,7 +20,7 @@
     {
       "name": "OwnerRisk",
       "displayName": "Owner / Key-Person Risk",
-      "weight": 0.20,
+      "weight": 0.18,
       "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
       "kpis": [
         { "name": "OwnerProductionPct", "displayName": "Owner Production %", "unit": "%", "category": "OwnerProduction" },
@@ -32,7 +32,7 @@
     {
       "name": "Operations",
       "displayName": "Operations",
-      "weight": 0.20,
+      "weight": 0.18,
       "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
       "kpis": [
         { "name": "ChairUtilization", "displayName": "Chair Utilization", "unit": "%", "category": "Utilization" },
@@ -45,7 +45,7 @@
     {
       "name": "ClientBase",
       "displayName": "Client Base",
-      "weight": 0.15,
+      "weight": 0.12,
       "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
       "kpis": [
         { "name": "ActivePatientCount", "displayName": "Active Patients", "unit": "count", "category": "ClientVolume" },
@@ -76,6 +76,18 @@
         { "name": "CompetitorCount", "displayName": "Competitors in Area", "unit": "count", "category": "RevenueMix" },
         { "name": "DsoPresence", "displayName": "DSO Presence", "unit": "bool", "category": "RevenueMix" },
         { "name": "PopulationGrowthRate", "displayName": "Population Growth Rate", "unit": "%", "category": "RevenueMix" }
+      ]
+    },
+    {
+      "name": "Workforce",
+      "displayName": "Workforce Stability",
+      "weight": 0.10,
+      "thresholds": { "strong": 30, "acceptable": 50, "weak": 70 },
+      "kpis": [
+        { "name": "WorkforcePressureScore", "displayName": "Workforce Pressure Score", "unit": "score", "category": "WorkforceSignals" },
+        { "name": "PostingFrequency", "displayName": "Job Posting Frequency (annualized)", "unit": "ratio", "category": "WorkforceSignals" },
+        { "name": "ChronicTurnoverSignal", "displayName": "Chronic Turnover Detected", "unit": "bool", "category": "WorkforceSignals" },
+        { "name": "UrgentPostingRatio", "displayName": "Urgent Posting Ratio", "unit": "%", "category": "WorkforceSignals" }
       ]
     }
   ],
@@ -164,6 +176,18 @@
         { "name": "hasDigitalXray", "label": "Has Digital X-Ray", "type": "boolean", "confidenceWeight": 0.01, "validation": { "required": false } },
         { "name": "hasCadCam", "label": "Has CAD/CAM", "type": "boolean", "confidenceWeight": 0.01, "validation": { "required": false } },
         { "name": "hasCbct", "label": "Has CBCT Scanner", "type": "boolean", "confidenceWeight": 0.01, "validation": { "required": false } }
+      ]
+    },
+    {
+      "category": "WorkforceSignals",
+      "dimension": "Workforce",
+      "confidenceWeight": 0.08,
+      "displayName": "Workforce & Hiring Signals",
+      "fields": [
+        { "name": "workforcePressureScore", "label": "Workforce Pressure Score (0-100)", "type": "decimal", "confidenceWeight": 0.03, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "postingFrequency", "label": "Annualized Posting Frequency", "type": "decimal", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "chronicTurnoverSignal", "label": "Chronic Turnover Detected", "type": "boolean", "confidenceWeight": 0.02, "validation": { "required": false } },
+        { "name": "urgentPostingRatio", "label": "Urgent Posting Ratio (%)", "type": "percentage", "confidenceWeight": 0.01, "validation": { "min": 0, "max": 100, "required": false } }
       ]
     },
     {

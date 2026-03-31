@@ -5,7 +5,7 @@
     {
       "name": "FinancialHealth",
       "displayName": "Financial Health",
-      "weight": 0.25,
+      "weight": 0.22,
       "thresholds": {
         "strong": 75,
         "acceptable": 50,
@@ -22,7 +22,7 @@
     {
       "name": "OwnerRisk",
       "displayName": "Owner / Key-Person Risk",
-      "weight": 0.20,
+      "weight": 0.18,
       "thresholds": {
         "strong": 75,
         "acceptable": 50,
@@ -38,7 +38,7 @@
     {
       "name": "Operations",
       "displayName": "Operations",
-      "weight": 0.20,
+      "weight": 0.18,
       "thresholds": {
         "strong": 75,
         "acceptable": 50,
@@ -55,7 +55,7 @@
     {
       "name": "ClientBase",
       "displayName": "Client Base",
-      "weight": 0.15,
+      "weight": 0.12,
       "thresholds": {
         "strong": 75,
         "acceptable": 50,
@@ -99,6 +99,22 @@
         { "name": "DsoPresence", "displayName": "DSO Presence", "unit": "bool", "category": "market" },
         { "name": "PopulationGrowthRate", "displayName": "Population Growth Rate", "unit": "%", "category": "market" }
       ]
+    },
+    {
+      "name": "Workforce",
+      "displayName": "Workforce Stability",
+      "weight": 0.10,
+      "thresholds": {
+        "strong": 30,
+        "acceptable": 50,
+        "weak": 70
+      },
+      "kpis": [
+        { "name": "WorkforcePressureScore", "displayName": "Workforce Pressure Score", "unit": "score", "category": "workforce_signals" },
+        { "name": "PostingFrequency", "displayName": "Job Posting Frequency (annualized)", "unit": "ratio", "category": "workforce_signals" },
+        { "name": "ChronicTurnoverSignal", "displayName": "Chronic Turnover Detected", "unit": "bool", "category": "workforce_signals" },
+        { "name": "UrgentPostingRatio", "displayName": "Urgent Posting Ratio", "unit": "%", "category": "workforce_signals" }
+      ]
     }
   ],
   "contributionCategories": [
@@ -108,7 +124,8 @@
     { "category": "client_base", "dimension": "ClientBase", "confidenceWeight": 0.10, "displayName": "Client Base Data" },
     { "category": "revenue_mix", "dimension": "RevenueDiversification", "confidenceWeight": 0.08, "displayName": "Revenue Mix Data" },
     { "category": "market", "dimension": "MarketPosition", "confidenceWeight": 0.08, "displayName": "Market Position Data" },
-    { "category": "staff_compensation", "dimension": "Operations", "confidenceWeight": 0.05, "displayName": "Staff Compensation Data" }
+    { "category": "staff_compensation", "dimension": "Operations", "confidenceWeight": 0.05, "displayName": "Staff Compensation Data" },
+    { "category": "workforce_signals", "dimension": "Workforce", "confidenceWeight": 0.08, "displayName": "Workforce & Hiring Signals" }
   ],
   "compensationRoles": [
     {

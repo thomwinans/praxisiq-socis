@@ -2,6 +2,7 @@ using Snapp.Service.Intelligence.Handlers;
 using Snapp.Service.Intelligence.Repositories;
 using Snapp.Shared.Constants;
 using Snapp.Shared.DTOs.Common;
+using Snapp.Shared.Models;
 
 namespace Snapp.Service.Intelligence.Endpoints;
 
@@ -36,6 +37,7 @@ public static class ScoreEndpoints
         HttpRequest request,
         IntelligenceRepository repo,
         ScoringEngine engine,
+        WorkforceEnrichmentProvider workforceProvider,
         ILogger<Program> logger)
     {
         var traceId = EndpointHelpers.NewTraceId();
@@ -43,7 +45,16 @@ public static class ScoreEndpoints
         if (userId is null) return EndpointHelpers.Unauthorized(traceId);
 
         var contributions = await repo.GetUserDataAsync(userId);
-        var result = engine.ComputeScore(contributions);
+
+        // Pull in enrichment signals from job posting analysis
+        var practiceState = ExtractPracticeState(contributions);
+        List<Shared.Models.PracticeData>? enrichmentSignals = null;
+        if (practiceState is not null)
+        {
+            enrichmentSignals = await workforceProvider.GetWorkforceSignalsByStateAsync(userId, practiceState);
+        }
+
+        var result = engine.ComputeScore(contributions, enrichmentSignals);
 
         await repo.SaveScoreAsync(userId, result.DimensionScores, result.OverallScore, result.ConfidenceLevel);
 
@@ -104,6 +115,25 @@ public static class ScoreEndpoints
                 ComputedAt = s.ComputedAt,
             }).ToList(),
         });
+    }
+
+    private static string? ExtractPracticeState(List<PracticeData> contributions)
+    {
+        // Look for a FacilityType or market contribution that includes state info
+        var marketData = contributions.FirstOrDefault(c => c.Category == "market");
+        if (marketData?.DataPoints.TryGetValue("State", out var state) == true)
+            return state;
+
+        // Fall back: check if any contribution has state in DataPoints
+        foreach (var c in contributions)
+        {
+            if (c.DataPoints.TryGetValue("State", out var s) && !string.IsNullOrEmpty(s))
+                return s;
+            if (c.DataPoints.TryGetValue("PracticeState", out var ps) && !string.IsNullOrEmpty(ps))
+                return ps;
+        }
+
+        return null;
     }
 }
 

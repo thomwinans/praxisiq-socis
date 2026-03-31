@@ -16,20 +16,27 @@ public class ScoringEngine
     /// <summary>
     /// Computes a multi-dimensional score from available practice data.
     /// Each dimension scored 0-100 based on available signals.
+    /// Enrichment signals (e.g., from job posting analysis) are merged with user contributions.
     /// </summary>
-    public ScoringResult ComputeScore(List<PracticeData> contributions)
+    public ScoringResult ComputeScore(List<PracticeData> contributions, List<PracticeData>? enrichmentSignals = null)
     {
+        var allContributions = enrichmentSignals is { Count: > 0 }
+            ? contributions.Concat(enrichmentSignals).ToList()
+            : contributions;
+
         var dimensionScores = new Dictionary<string, decimal>();
         decimal weightedSum = 0;
         decimal totalWeight = 0;
 
         foreach (var dim in _config.Dimensions)
         {
-            var dimContributions = contributions
+            var dimContributions = allContributions
                 .Where(c => c.Dimension == dim.Name)
                 .ToList();
 
-            var score = ScoreDimension(dim, dimContributions);
+            var score = dim.Name == "Workforce"
+                ? ScoreWorkforceDimension(dim, dimContributions)
+                : ScoreDimension(dim, dimContributions);
             dimensionScores[dim.Name] = score;
 
             weightedSum += score * dim.Weight;
@@ -149,6 +156,54 @@ public class ScoringEngine
             return Math.Round(valueScores.Average(), 2);
 
         return Math.Round(coverageScore, 2);
+    }
+
+    /// <summary>
+    /// Scores the Workforce dimension using inverse logic: lower pressure = better score.
+    /// WorkforcePressureScore is 0-100 where 100 = maximum pressure (bad).
+    /// We invert: stability = 100 - pressure.
+    /// </summary>
+    private static decimal ScoreWorkforceDimension(DimensionConfig dim, List<PracticeData> contributions)
+    {
+        if (contributions.Count == 0)
+            return 0m;
+
+        var dataPoints = contributions
+            .SelectMany(c => c.DataPoints)
+            .GroupBy(dp => dp.Key)
+            .ToDictionary(g => g.Key, g => g.First().Value);
+
+        var scores = new List<decimal>();
+
+        // WorkforcePressureScore: invert (low pressure = high stability score)
+        if (dataPoints.TryGetValue("WorkforcePressureScore", out var pressureStr)
+            && decimal.TryParse(pressureStr, out var pressure))
+        {
+            scores.Add(Math.Max(0, 100m - pressure));
+        }
+
+        // PostingFrequency: lower = better. Cap at 12 postings/year as worst case
+        if (dataPoints.TryGetValue("PostingFrequency", out var freqStr)
+            && decimal.TryParse(freqStr, out var freq))
+        {
+            var normalized = Math.Max(0, 100m - freq / 12m * 100m);
+            scores.Add(Math.Max(0, normalized));
+        }
+
+        // ChronicTurnoverSignal: boolean — true = 0 (bad), false = 100 (good)
+        if (dataPoints.TryGetValue("ChronicTurnoverSignal", out var chronicStr))
+        {
+            scores.Add(bool.TryParse(chronicStr, out var chronic) && chronic ? 0m : 100m);
+        }
+
+        // UrgentPostingRatio: lower = better (invert percentage)
+        if (dataPoints.TryGetValue("UrgentPostingRatio", out var urgentStr)
+            && decimal.TryParse(urgentStr, out var urgentRatio))
+        {
+            scores.Add(Math.Max(0, 100m - urgentRatio));
+        }
+
+        return scores.Count > 0 ? Math.Round(scores.Average(), 2) : 0m;
     }
 
     private static decimal NormalizeValue(decimal value, Dictionary<string, decimal> thresholds, string unit)

@@ -46,6 +46,9 @@ builder.Services.AddSingleton(verticalConfig);
 // Scoring Engine
 builder.Services.AddSingleton<ScoringEngine>();
 
+// Workforce Enrichment Provider — feeds job posting signals into scoring
+builder.Services.AddSingleton<WorkforceEnrichmentProvider>();
+
 // Career Stage Classifier
 builder.Services.AddSingleton<CareerStageClassifier>();
 

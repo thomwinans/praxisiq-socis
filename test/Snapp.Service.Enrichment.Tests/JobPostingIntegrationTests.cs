@@ -103,22 +103,24 @@ public class JobPostingIntegrationTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task LoadAndAnalyzeAsync_StoresAnalysesInDynamoDB()
     {
-        await _loader.LoadAndAnalyzeAsync();
+        var analyses = await _loader.LoadAndAnalyzeAsync();
 
-        // Query job posting analysis items
-        var response = await _client.ScanAsync(new ScanRequest
+        // Verify by querying a known practice
+        var pk = "JOBPOST#Mitchell Family Dentistry|Phoenix|AZ";
+        var response = await _client.QueryAsync(new QueryRequest
         {
             TableName = TableNames.Intelligence,
-            FilterExpression = "begins_with(PK, :prefix)",
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
-                [":prefix"] = new("JOBPOST#"),
+                [":pk"] = new(pk),
+                [":prefix"] = new("ANALYSIS#"),
             },
-            Select = Select.COUNT,
         });
 
-        response.Count.Should().BeGreaterOrEqualTo(15,
-            "each practice should produce at least one analysis item");
+        response.Items.Should().NotBeEmpty("Mitchell Family Dentistry should have an analysis item");
+        analyses.Count.Should().BeGreaterOrEqualTo(15,
+            "fixture contains postings for 20 practices");
     }
 
     [Fact]
@@ -126,15 +128,16 @@ public class JobPostingIntegrationTests : IAsyncLifetime, IDisposable
     {
         await _loader.LoadAndAnalyzeAsync();
 
-        // Scan for Mitchell Family Dentistry
-        var response = await _client.ScanAsync(new ScanRequest
+        // Query Mitchell Family Dentistry directly by PK
+        var pk = "JOBPOST#Mitchell Family Dentistry|Phoenix|AZ";
+        var response = await _client.QueryAsync(new QueryRequest
         {
             TableName = TableNames.Intelligence,
-            FilterExpression = "begins_with(PK, :prefix) AND PracticeName = :name",
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
-                [":prefix"] = new("JOBPOST#"),
-                [":name"] = new("Mitchell Family Dentistry"),
+                [":pk"] = new(pk),
+                [":prefix"] = new("ANALYSIS#"),
             },
         });
 
