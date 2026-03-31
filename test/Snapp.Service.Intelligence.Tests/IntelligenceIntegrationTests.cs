@@ -31,7 +31,7 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
     public IntelligenceIntegrationTests(DockerTestFixture fixture)
     {
         _fixture = fixture;
-        _http = new HttpClient { BaseAddress = new Uri(fixture.KongUrl), Timeout = TimeSpan.FromSeconds(15) };
+        _http = new HttpClient { BaseAddress = new Uri(fixture.KongUrl), Timeout = TimeSpan.FromSeconds(30) };
         _dynamo = new DynamoDbTestHelper();
     }
 

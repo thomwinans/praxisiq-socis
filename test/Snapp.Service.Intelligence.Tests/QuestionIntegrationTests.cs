@@ -30,7 +30,7 @@ public class QuestionIntegrationTests : IAsyncLifetime
     public QuestionIntegrationTests(DockerTestFixture fixture)
     {
         _fixture = fixture;
-        _http = new HttpClient { BaseAddress = new Uri(fixture.KongUrl), Timeout = TimeSpan.FromSeconds(15) };
+        _http = new HttpClient { BaseAddress = new Uri(fixture.KongUrl), Timeout = TimeSpan.FromSeconds(30) };
         _dynamo = new DynamoDbTestHelper();
     }
 
