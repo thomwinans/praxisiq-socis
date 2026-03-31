@@ -1,4 +1,187 @@
 @page "/intelligence/benchmark"
 @attribute [Authorize]
+@using MudBlazor
+@using Snapp.Client.Components.Intelligence
+@using Snapp.Client.Services
+@using Snapp.Shared.DTOs.Intelligence
+@inject IIntelligenceService IntelligenceService
 
-<MudText Typo="Typo.h4">Benchmarks</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Benchmarks</MudText>
+
+@* Cohort Selectors *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudSelect T="string" Label="Specialty" @bind-Value="_specialty" Variant="Variant.Outlined">
+                <MudSelectItem Value="@("General Dentistry")">General Dentistry</MudSelectItem>
+                <MudSelectItem Value="@("Orthodontics")">Orthodontics</MudSelectItem>
+                <MudSelectItem Value="@("Periodontics")">Periodontics</MudSelectItem>
+                <MudSelectItem Value="@("Endodontics")">Endodontics</MudSelectItem>
+                <MudSelectItem Value="@("Oral Surgery")">Oral Surgery</MudSelectItem>
+                <MudSelectItem Value="@("Pediatric Dentistry")">Pediatric Dentistry</MudSelectItem>
+                <MudSelectItem Value="@("Prosthodontics")">Prosthodontics</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudSelect T="string" Label="Geography" @bind-Value="_geography" Variant="Variant.Outlined">
+                <MudSelectItem Value="@("National")">National</MudSelectItem>
+                <MudSelectItem Value="@("Northeast")">Northeast</MudSelectItem>
+                <MudSelectItem Value="@("Southeast")">Southeast</MudSelectItem>
+                <MudSelectItem Value="@("Midwest")">Midwest</MudSelectItem>
+                <MudSelectItem Value="@("Southwest")">Southwest</MudSelectItem>
+                <MudSelectItem Value="@("West")">West</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudSelect T="string" Label="Size Band" @bind-Value="_sizeBand" Variant="Variant.Outlined">
+                <MudSelectItem Value="@("Solo")">Solo</MudSelectItem>
+                <MudSelectItem Value="@("Small (2-4)")">Small (2-4)</MudSelectItem>
+                <MudSelectItem Value="@("Medium (5-10)")">Medium (5-10)</MudSelectItem>
+                <MudSelectItem Value="@("Large (11+)")">Large (11+)</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
+               StartIcon="@Icons.Material.Filled.Search"
+               OnClick="LoadBenchmarksAsync"
+               Disabled="@(!CanSearch)">
+        Compare
+    </MudButton>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        Failed to load benchmark data.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadBenchmarksAsync">Retry</MudButton>
+    </MudAlert>
+}
+else if (_response is not null)
+{
+    @* Cohort size *@
+    @if (_response.CohortSize < 5)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            Not enough data in this cohort yet. Only @_response.CohortSize practices found.
+        </MudAlert>
+    }
+    else
+    {
+        <MudText Typo="Typo.subtitle1" Class="mb-4">
+            Comparing against @_response.CohortSize peers
+        </MudText>
+    }
+
+    @* Benchmark Table *@
+    <MudTable Items="@_response.Metrics" Dense="true" Hover="true" Striped="true"
+              RowClassFunc="@GetRowClass" Elevation="1">
+        <HeaderContent>
+            <MudTh>Metric</MudTh>
+            <MudTh>Your Value</MudTh>
+            <MudTh>P25</MudTh>
+            <MudTh>P50 (Median)</MudTh>
+            <MudTh>P75</MudTh>
+            <MudTh>Your Percentile</MudTh>
+            <MudTh Style="min-width: 200px;">Distribution</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Metric">@context.Name</MudTd>
+            <MudTd DataLabel="Your Value">
+                @if (context.UserValue.HasValue)
+                {
+                    @FormatValue(context.UserValue.Value)
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Default">--</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="P25">@FormatValue(context.P25)</MudTd>
+            <MudTd DataLabel="P50">@FormatValue(context.P50)</MudTd>
+            <MudTd DataLabel="P75">@FormatValue(context.P75)</MudTd>
+            <MudTd DataLabel="Your Percentile">
+                @if (context.UserPercentile.HasValue)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="@GetPercentileColor(context.UserPercentile.Value)">
+                        @($"{context.UserPercentile.Value:F0}th")
+                    </MudChip>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Default">--</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Distribution">
+                <PercentileBar P25="@context.P25" P50="@context.P50" P75="@context.P75"
+                               UserValue="@context.UserValue" UserPercentile="@context.UserPercentile" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else if (!_hasSearched)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+        <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Large" Color="Color.Default" />
+        <MudText Color="Color.Default">Select cohort filters and click Compare to see benchmarks.</MudText>
+    </MudStack>
+}
+
+@code {
+    private string _specialty = "General Dentistry";
+    private string _geography = "National";
+    private string _sizeBand = "Solo";
+    private bool _loading;
+    private bool _error;
+    private bool _hasSearched;
+    private BenchmarkResponse? _response;
+
+    private bool CanSearch => !string.IsNullOrEmpty(_specialty)
+                           && !string.IsNullOrEmpty(_geography)
+                           && !string.IsNullOrEmpty(_sizeBand);
+
+    private async Task LoadBenchmarksAsync()
+    {
+        _loading = true;
+        _error = false;
+        _hasSearched = true;
+        StateHasChanged();
+
+        try
+        {
+            _response = await IntelligenceService.GetBenchmarksAsync(_specialty, _geography, _sizeBand);
+            if (_response is null) _error = true;
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string GetRowClass(BenchmarkMetric metric, int _)
+    {
+        if (!metric.UserPercentile.HasValue) return string.Empty;
+        var p = metric.UserPercentile.Value;
+        if (p < 25) return "mud-theme-error";
+        if (p < 50) return "mud-theme-warning";
+        return "mud-theme-success";
+    }
+
+    private static Color GetPercentileColor(decimal percentile)
+    {
+        if (percentile < 25) return Color.Error;
+        if (percentile < 50) return Color.Warning;
+        return Color.Success;
+    }
+
+    private static string FormatValue(decimal value)
+        => value >= 10_000 ? $"{value:N0}" : $"{value:F1}";
+}

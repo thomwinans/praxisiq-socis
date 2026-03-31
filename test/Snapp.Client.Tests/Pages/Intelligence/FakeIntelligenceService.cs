@@ -11,8 +11,10 @@ public class FakeIntelligenceService : IIntelligenceService
     public ContributionListResponse? ContributionsResult { get; set; }
     public MessageResponse? ContributeResult { get; set; }
     public VerticalConfigResponse? ConfigResult { get; set; }
+    public BenchmarkResponse? BenchmarkResult { get; set; }
     public bool ThrowOnDashboard { get; set; }
     public bool ThrowOnContribute { get; set; }
+    public bool ThrowOnBenchmarks { get; set; }
 
     public Task<DashboardResponse?> GetDashboardAsync()
     {
@@ -34,4 +36,10 @@ public class FakeIntelligenceService : IIntelligenceService
 
     public Task<VerticalConfigResponse?> GetVerticalConfigAsync()
         => Task.FromResult(ConfigResult);
+
+    public Task<BenchmarkResponse?> GetBenchmarksAsync(string specialty, string geography, string sizeBand)
+    {
+        if (ThrowOnBenchmarks) throw new HttpRequestException("Failed");
+        return Task.FromResult(BenchmarkResult);
+    }
 }

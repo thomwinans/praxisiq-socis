@@ -1,0 +1,44 @@
+@using MudBlazor
+
+<div style="position: relative; width: 100%; min-width: 180px;">
+    @* Background bar representing full range *@
+    <MudProgressLinear Value="100" Color="Color.Default" Rounded="true" Size="Size.Medium"
+                       Style="height: 12px;" />
+
+    @* P25/P50/P75 markers *@
+    <MudTooltip Text="@($"P25: {P25:F1}")">
+        <div style="position: absolute; top: 0; left: 25%; width: 2px; height: 12px; background-color: var(--mud-palette-warning);" />
+    </MudTooltip>
+    <MudTooltip Text="@($"P50: {P50:F1}")">
+        <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 12px; background-color: var(--mud-palette-info);" />
+    </MudTooltip>
+    <MudTooltip Text="@($"P75: {P75:F1}")">
+        <div style="position: absolute; top: 0; left: 75%; width: 2px; height: 12px; background-color: var(--mud-palette-success);" />
+    </MudTooltip>
+
+    @* User position dot *@
+    @if (UserPercentile.HasValue)
+    {
+        var left = Math.Clamp((double)UserPercentile.Value, 0, 99);
+        <MudTooltip Text="@($"You: {UserPercentile.Value:F0}th percentile")">
+            <div style="position: absolute; top: -2px; left: @($"{left}%"); width: 16px; height: 16px; border-radius: 50%; background-color: @GetDotColor(); border: 2px solid white; transform: translateX(-50%);" />
+        </MudTooltip>
+    }
+</div>
+
+@code {
+    [Parameter] public decimal P25 { get; set; }
+    [Parameter] public decimal P50 { get; set; }
+    [Parameter] public decimal P75 { get; set; }
+    [Parameter] public decimal? UserValue { get; set; }
+    [Parameter] public decimal? UserPercentile { get; set; }
+
+    private string GetDotColor()
+    {
+        if (!UserPercentile.HasValue) return "transparent";
+        var p = UserPercentile.Value;
+        if (p < 25) return "var(--mud-palette-error)";
+        if (p < 50) return "var(--mud-palette-warning)";
+        return "var(--mud-palette-success)";
+    }
+}

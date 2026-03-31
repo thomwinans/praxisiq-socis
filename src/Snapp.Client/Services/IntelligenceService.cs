@@ -38,6 +38,14 @@ public class IntelligenceService : IIntelligenceService
         return null;
     }
 
+    public async Task<BenchmarkResponse?> GetBenchmarksAsync(string specialty, string geography, string sizeBand)
+    {
+        var url = $"intel/benchmarks?specialty={Uri.EscapeDataString(specialty)}&geo={Uri.EscapeDataString(geography)}&size={Uri.EscapeDataString(sizeBand)}";
+        var response = await _http.GetAsync(url);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<BenchmarkResponse>();
+    }
+
     public async Task<VerticalConfigResponse?> GetVerticalConfigAsync()
     {
         // The vertical config is served from the intelligence service

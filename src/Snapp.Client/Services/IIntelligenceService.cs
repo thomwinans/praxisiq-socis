@@ -10,6 +10,7 @@ public interface IIntelligenceService
     Task<ContributionListResponse?> GetContributionsAsync();
     Task<MessageResponse?> ContributeDataAsync(SubmitDataRequest request);
     Task<VerticalConfigResponse?> GetVerticalConfigAsync();
+    Task<BenchmarkResponse?> GetBenchmarksAsync(string specialty, string geography, string sizeBand);
 }
 
 public class ScoreResponse
