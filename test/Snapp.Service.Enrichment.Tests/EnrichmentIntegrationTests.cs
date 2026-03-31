@@ -43,10 +43,7 @@ public class EnrichmentIntegrationTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        // Ensure clean table
-        try { await _client.DeleteTableAsync(TableNames.Intelligence); }
-        catch (ResourceNotFoundException) { }
-
+        // Ensure table exists (do NOT delete — other test assemblies share this table)
         await _repo.EnsureTableAsync();
     }
 
@@ -195,12 +192,15 @@ public class EnrichmentIntegrationTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task RunAsync_UnknownVertical_CompletesWithoutError()
     {
+        // Count signals before run
+        var beforeCount = await _repo.CountSignalsByPrefixAsync(KeyPrefixes.Signal);
+
         // Should not throw, just logs a warning about no taxonomy codes
         await _processor.RunAsync("veterinary");
 
-        // No signals created (no matching taxonomy codes)
-        var signalCount = await _repo.CountSignalsByPrefixAsync(KeyPrefixes.Signal);
-        signalCount.Should().Be(0);
+        // No new signals created (no matching taxonomy codes)
+        var afterCount = await _repo.CountSignalsByPrefixAsync(KeyPrefixes.Signal);
+        afterCount.Should().Be(beforeCount);
     }
 
     // ── Helpers ─────────────────────────────────────────────────
