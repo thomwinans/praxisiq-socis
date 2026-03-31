@@ -155,7 +155,9 @@ public class ContentRepository : IContentRepository
             request.ExclusiveStartKey = DecodeNextToken(nextToken);
 
         var response = await _db.QueryAsync(request);
-        return response.Items.Select(MapThread).ToList();
+        return response.Items
+            .Where(item => item.ContainsKey("ThreadId"))
+            .Select(MapThread).ToList();
     }
 
     public async Task CreateReplyAsync(Reply reply)
@@ -192,10 +194,11 @@ public class ContentRepository : IContentRepository
                             ["PK"] = new($"{KeyPrefixes.Thread}{reply.ThreadId}"),
                             ["SK"] = new("META"),
                         },
-                        UpdateExpression = "SET ReplyCount = ReplyCount + :one, LastReplyAt = :ts",
+                        UpdateExpression = "SET ReplyCount = if_not_exists(ReplyCount, :zero) + :one, LastReplyAt = :ts",
                         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                         {
                             [":one"] = new() { N = "1" },
+                            [":zero"] = new() { N = "0" },
                             [":ts"] = new(timestamp),
                         },
                     },
@@ -215,10 +218,11 @@ public class ContentRepository : IContentRepository
                     ["PK"] = new($"{KeyPrefixes.Discussion}{thread.NetworkId}"),
                     ["SK"] = new($"{KeyPrefixes.Thread}{thread.CreatedAt:O}#{thread.ThreadId}"),
                 },
-                UpdateExpression = "SET ReplyCount = ReplyCount + :one, LastReplyAt = :ts",
+                UpdateExpression = "SET ReplyCount = if_not_exists(ReplyCount, :zero) + :one, LastReplyAt = :ts",
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
                     [":one"] = new() { N = "1" },
+                    [":zero"] = new() { N = "0" },
                     [":ts"] = new(timestamp),
                 },
             });
@@ -281,7 +285,9 @@ public class ContentRepository : IContentRepository
 
     public async Task<Reply?> GetReplyAsync(string threadId, string replyId)
     {
-        // We need to find the reply by scanning REPLY# items for this thread
+        // Query all REPLY# items for this thread and filter by ReplyId.
+        // Do NOT use Limit here — DynamoDB applies Limit before FilterExpression,
+        // so Limit=1 would only evaluate the first REPLY# item and miss later ones.
         var request = new QueryRequest
         {
             TableName = TableNames.Content,
@@ -293,7 +299,6 @@ public class ContentRepository : IContentRepository
                 [":prefix"] = new("REPLY#"),
                 [":replyId"] = new(replyId),
             },
-            Limit = 1,
         };
 
         var response = await _db.QueryAsync(request);
@@ -518,19 +523,13 @@ public class ContentRepository : IContentRepository
             ["CreatedAt"] = new(timestamp),
         };
 
-        if (post.ReactionCounts.Count > 0)
-        {
-            item["ReactionCounts"] = new()
-            {
-                M = post.ReactionCounts.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => new AttributeValue { N = kvp.Value.ToString() }),
-            };
-        }
-        else
-        {
-            item["ReactionCounts"] = new() { M = new Dictionary<string, AttributeValue>() };
-        }
+        // Always write ReactionCounts as a map (use placeholder for empty to satisfy DynamoDB Local)
+        var rcMap = post.ReactionCounts.Count > 0
+            ? post.ReactionCounts.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new AttributeValue { N = kvp.Value.ToString() })
+            : new Dictionary<string, AttributeValue> { ["_"] = new() { N = "0" } };
+        item["ReactionCounts"] = new() { M = rcMap };
 
         return item;
     }
@@ -544,7 +543,7 @@ public class ContentRepository : IContentRepository
         PostType = Enum.TryParse<PostType>(item.TryGetValue("PostType", out var pt) ? pt.S : "Text", out var postType)
             ? postType : PostType.Text,
         ReactionCounts = item.TryGetValue("ReactionCounts", out var rc) && rc.M is not null
-            ? rc.M.Where(kvp => kvp.Value.N is not null)
+            ? rc.M.Where(kvp => kvp.Value.N is not null && kvp.Key != "_")
                   .ToDictionary(kvp => kvp.Key, kvp => int.Parse(kvp.Value.N))
             : new Dictionary<string, int>(),
         CreatedAt = DateTime.Parse(item["CreatedAt"].S),
