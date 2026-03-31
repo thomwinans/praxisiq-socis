@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Amazon.DynamoDBv2;
 using Snapp.Service.Content.Endpoints;
 using Snapp.Service.Content.Repositories;
@@ -7,6 +8,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 // OpenAPI
 builder.Services.AddOpenApi();
+
+// JSON serialization — accept enum values as strings
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 // DynamoDB
 var dynamoConfig = new AmazonDynamoDBConfig();

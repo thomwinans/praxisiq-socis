@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using FluentAssertions;
@@ -20,7 +21,11 @@ public class ContentIntegrationTests : IAsyncLifetime
     private readonly DockerTestFixture _fixture;
     private readonly HttpClient _http;
     private readonly DynamoDbTestHelper _dynamo;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     public ContentIntegrationTests(DockerTestFixture fixture)
     {
