@@ -41,6 +41,7 @@ public class UnlockEngine
     private async Task<UnlockResult?> ProcessConfirmDataAsync(
         string userId, AnsweredQuestionItem answer, PendingQuestionItem question)
     {
+        var unlockId = Ulid.NewUlid().ToString();
         var unlockType = answer.Answer.Equals("Yes", StringComparison.OrdinalIgnoreCase)
             ? "data_confirmed"
             : "data_correction";
@@ -71,6 +72,10 @@ public class UnlockEngine
             };
             await _repo.SubmitDataAsync(data);
             intelligenceRevealed = $"Market profile access for your geography unlocked.";
+
+            // Create/update MKT# access record for the user's geography
+            var geoId = ResolveGeoId(userId, question);
+            await _repo.SaveMarketAccessAsync(userId, geoId, unlockId);
         }
 
         // Compute updated confidence
@@ -79,7 +84,7 @@ public class UnlockEngine
 
         var unlock = new UnlockRecord
         {
-            UnlockId = Ulid.NewUlid().ToString(),
+            UnlockId = unlockId,
             UserId = userId,
             QuestionId = answer.QuestionId,
             Type = unlockType,
@@ -106,7 +111,16 @@ public class UnlockEngine
         if (!answer.Answer.Equals("Yes", StringComparison.OrdinalIgnoreCase))
             return null;
 
+        var unlockId = Ulid.NewUlid().ToString();
         var description = "Relationship confirmed — added to your referral network. Peer comparisons unlocked.";
+
+        // Store lightweight connection record in snapp-tx
+        var connectionId = Ulid.NewUlid().ToString();
+        await _repo.SaveConnectionRecordAsync(
+            userId,
+            connectionId,
+            $"Referral network connection confirmed via question {answer.QuestionId}",
+            unlockId);
 
         // Compute updated confidence
         var allData = await _repo.GetUserDataAsync(userId);
@@ -114,7 +128,7 @@ public class UnlockEngine
 
         var unlock = new UnlockRecord
         {
-            UnlockId = Ulid.NewUlid().ToString(),
+            UnlockId = unlockId,
             UserId = userId,
             QuestionId = answer.QuestionId,
             Type = "relationship_confirmed",
@@ -138,6 +152,8 @@ public class UnlockEngine
     private async Task<UnlockResult?> ProcessEstimateValueAsync(
         string userId, AnsweredQuestionItem answer, PendingQuestionItem question)
     {
+        var unlockId = Ulid.NewUlid().ToString();
+
         // Parse the answer into a data point value
         var resolvedValue = ResolveEstimateAnswer(answer.Answer, question.RelatedDataPoint);
 
@@ -160,6 +176,9 @@ public class UnlockEngine
             await _repo.SubmitDataAsync(data);
         }
 
+        // Unlock cohort benchmark access for this category
+        await _repo.SaveBenchmarkAccessAsync(userId, question.Category, unlockId);
+
         // Compute updated confidence
         var allData = await _repo.GetUserDataAsync(userId);
         var newConfidence = _scoring.CalculateTotalConfidence(allData);
@@ -169,7 +188,7 @@ public class UnlockEngine
 
         var unlock = new UnlockRecord
         {
-            UnlockId = Ulid.NewUlid().ToString(),
+            UnlockId = unlockId,
             UserId = userId,
             QuestionId = answer.QuestionId,
             Type = "estimate_recorded",
@@ -188,6 +207,18 @@ public class UnlockEngine
             IntelligenceRevealed = intelligenceRevealed,
             ConfidenceAfter = newConfidence,
         };
+    }
+
+    /// <summary>
+    /// Resolves a geography ID from the question context.
+    /// Uses the question category as a proxy; in production this would
+    /// resolve from the user's profile address or practice location.
+    /// </summary>
+    private static string ResolveGeoId(string userId, PendingQuestionItem question)
+    {
+        // Derive a stable geo ID from the user — in production this comes from
+        // the user's profile (city/zip). For now, use a deterministic key.
+        return $"{userId}-local";
     }
 
     /// <summary>

@@ -759,6 +759,120 @@ public class IntelligenceRepository : IIntelligenceRepository
         });
     }
 
+    // ── Market Access ────────────────────────────────────────────
+
+    /// <summary>
+    /// Records that a user has unlocked market intelligence for a geography.
+    /// PK = MKT#{geoId}, SK = ACCESS#{userId}
+    /// </summary>
+    public async Task SaveMarketAccessAsync(string userId, string geoId, string unlockId)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+            ["SK"] = new($"ACCESS#{userId}"),
+            ["UserId"] = new(userId),
+            ["GeoId"] = new(geoId),
+            ["UnlockId"] = new(unlockId),
+            ["GrantedAt"] = new(DateTime.UtcNow.ToString("O")),
+        };
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = item,
+        });
+    }
+
+    /// <summary>
+    /// Checks whether a user has market access for a given geography.
+    /// </summary>
+    public async Task<bool> HasMarketAccessAsync(string userId, string geoId)
+    {
+        var response = await _db.GetItemAsync(new GetItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+                ["SK"] = new($"ACCESS#{userId}"),
+            },
+        });
+
+        return response.IsItemSet;
+    }
+
+    // ── Connection Records (snapp-tx) ───────────────────────────
+
+    /// <summary>
+    /// Stores a lightweight connection record in the snapp-tx table
+    /// when a user confirms a relationship via the unlock engine.
+    /// PK = CONN#{userId}, SK = {connectionId}
+    /// </summary>
+    public async Task SaveConnectionRecordAsync(string userId, string connectionId, string description, string unlockId)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"CONN#{userId}"),
+            ["SK"] = new(connectionId),
+            ["UserId"] = new(userId),
+            ["ConnectionId"] = new(connectionId),
+            ["Description"] = new(description),
+            ["UnlockId"] = new(unlockId),
+            ["Source"] = new("question_confirmed"),
+            ["CreatedAt"] = new(DateTime.UtcNow.ToString("O")),
+        };
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Transactions,
+            Item = item,
+        });
+    }
+
+    // ── Benchmark Access ────────────────────────────────────────
+
+    /// <summary>
+    /// Records that a user has unlocked cohort benchmark access for a category/band.
+    /// PK = UNLOCK#{userId}, SK = BENCH_ACCESS#{category}
+    /// </summary>
+    public async Task SaveBenchmarkAccessAsync(string userId, string category, string unlockId)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.Unlock}{userId}"),
+            ["SK"] = new($"BENCH_ACCESS#{category}"),
+            ["UserId"] = new(userId),
+            ["Category"] = new(category),
+            ["UnlockId"] = new(unlockId),
+            ["GrantedAt"] = new(DateTime.UtcNow.ToString("O")),
+        };
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = item,
+        });
+    }
+
+    /// <summary>
+    /// Checks whether a user has benchmark access for a given category.
+    /// </summary>
+    public async Task<bool> HasBenchmarkAccessAsync(string userId, string category)
+    {
+        var response = await _db.GetItemAsync(new GetItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Unlock}{userId}"),
+                ["SK"] = new($"BENCH_ACCESS#{category}"),
+            },
+        });
+
+        return response.IsItemSet;
+    }
+
     // ── Private helpers ──────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> BuildScoreItem(

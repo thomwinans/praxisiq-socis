@@ -37,6 +37,7 @@ public class UnlockIntegrationTests : IAsyncLifetime
     {
         await _dynamo.EnsureUsersTableAsync();
         await EnsureIntelTableAsync();
+        await EnsureTransactionsTableAsync();
     }
 
     public Task DisposeAsync()
@@ -115,6 +116,21 @@ public class UnlockIntegrationTests : IAsyncLifetime
         unlockResp.Items.Should().NotBeEmpty();
         unlockResp.Items[0]["Type"].S.Should().Be("data_confirmed");
         unlockResp.Items[0]["QuestionId"].S.Should().Be(confirmQ.QuestionId);
+
+        // Verify MKT# access record was created for the user's geography
+        var geoId = $"{userId}-local";
+        var mktAccessResp = await _dynamo.Client.GetItemAsync(new GetItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+                ["SK"] = new($"ACCESS#{userId}"),
+            },
+        });
+        mktAccessResp.IsItemSet.Should().BeTrue("MKT# access record should be created on data confirmation");
+        mktAccessResp.Item["UserId"].S.Should().Be(userId);
+        mktAccessResp.Item["GeoId"].S.Should().Be(geoId);
     }
 
     // ── Unlock on EstimateValue ──────────────────────────────────
@@ -169,6 +185,65 @@ public class UnlockIntegrationTests : IAsyncLifetime
         var unlockResp = await _dynamo.Client.QueryAsync(new QueryRequest
         {
             TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Unlock}{userId}"),
+                [":prefix"] = new("0"),  // ULID-based unlock IDs start with a digit
+            },
+        });
+        unlockResp.Items.Should().NotBeEmpty();
+        unlockResp.Items[0]["Type"].S.Should().Be("estimate_recorded");
+
+        // Verify BENCH_ACCESS# record was created for the category
+        var benchAccessResp = await _dynamo.Client.GetItemAsync(new GetItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Unlock}{userId}"),
+                ["SK"] = new($"BENCH_ACCESS#{estimateQ.Category}"),
+            },
+        });
+        benchAccessResp.IsItemSet.Should().BeTrue("Benchmark access should be granted on estimate answer");
+        benchAccessResp.Item["Category"].S.Should().Be(estimateQ.Category);
+    }
+
+    // ── Unlock on ConfirmRelationship ────────────────────────────
+
+    [Fact]
+    public async Task AnswerConfirmRelationship_Yes_CreatesConnectionRecord()
+    {
+        var jwt = await AuthenticateAsync($"intel-unlock-cryes-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+        var userId = ExtractUserId(jwt);
+
+        // Get questions
+        var questionsResp = await _http.GetAsync("/api/intel/questions");
+        var questions = await questionsResp.Content.ReadFromJsonAsync<PendingQuestionsResponse>(JsonOptions);
+        var relQ = questions!.Questions.FirstOrDefault(q => q.Type == "ConfirmRelationship");
+
+        if (relQ is null) return;
+
+        // Answer "Yes"
+        var ansResp = await _http.PostAsJsonAsync($"/api/intel/questions/{relQ.QuestionId}/answer", new
+        {
+            Answer = "Yes",
+        });
+
+        ansResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var ansBody = await ansResp.Content.ReadFromJsonAsync<AnswerQuestionResponse>(JsonOptions);
+        ansBody!.Accepted.Should().BeTrue();
+        ansBody.UnlockType.Should().Be("relationship_confirmed");
+        ansBody.IntelligenceRevealed.Should().Contain("Peer comparison");
+
+        // Verify UNLOCK# record created
+        var unlockResp = await _dynamo.Client.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
             KeyConditionExpression = "PK = :pk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -176,10 +251,22 @@ public class UnlockIntegrationTests : IAsyncLifetime
             },
         });
         unlockResp.Items.Should().NotBeEmpty();
-        unlockResp.Items[0]["Type"].S.Should().Be("estimate_recorded");
-    }
+        unlockResp.Items.Should().Contain(i => i["Type"].S == "relationship_confirmed");
 
-    // ── Unlock on ConfirmRelationship ────────────────────────────
+        // Verify CONN# record in snapp-tx
+        var connResp = await _dynamo.Client.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Transactions,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"CONN#{userId}"),
+            },
+        });
+        connResp.Items.Should().NotBeEmpty("Connection record should be created in snapp-tx");
+        connResp.Items[0]["UserId"].S.Should().Be(userId);
+        connResp.Items[0]["Source"].S.Should().Be("question_confirmed");
+    }
 
     [Fact]
     public async Task AnswerConfirmRelationship_No_NoUnlockCreated()
@@ -331,6 +418,32 @@ public class UnlockIntegrationTests : IAsyncLifetime
         var handler = new JwtSecurityTokenHandler();
         var token = handler.ReadJwtToken(jwt);
         return token.Subject;
+    }
+
+    private async Task EnsureTransactionsTableAsync()
+    {
+        try
+        {
+            await _dynamo.Client.DescribeTableAsync(TableNames.Transactions);
+        }
+        catch (ResourceNotFoundException)
+        {
+            await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+            {
+                TableName = TableNames.Transactions,
+                KeySchema =
+                [
+                    new KeySchemaElement("PK", KeyType.HASH),
+                    new KeySchemaElement("SK", KeyType.RANGE),
+                ],
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition("PK", ScalarAttributeType.S),
+                    new AttributeDefinition("SK", ScalarAttributeType.S),
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST,
+            });
+        }
     }
 
     private async Task EnsureIntelTableAsync()
