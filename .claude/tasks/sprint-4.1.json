@@ -1,0 +1,38 @@
+{
+  "sprint": "S4.1",
+  "description": "Hotfix — Fix 2 content test failures and test parallelism race condition",
+  "tasks": [
+    {
+      "id": "S4.1-001",
+      "title": "Fix CreatePost_Member_ReturnsCreated — returns 400 instead of 201",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "The integration test CreatePost_Member_ReturnsCreated in test/Snapp.Service.Content.Tests/ContentIntegrationTests.cs is failing:\n\n  Expected response.StatusCode to be HttpStatusCode.Created {value: 201}, but found HttpStatusCode.BadRequest {value: 400}.\n\nDiagnose and fix. Likely causes:\n1. The test is sending a request body that doesn't match the endpoint's expected DTO (e.g., missing required field, wrong field name, wrong content type)\n2. The endpoint's validation is rejecting valid input\n3. The endpoint returns 200 instead of 201 and the test expects 201\n\nSteps:\n1. Read the test code to see what payload it sends\n2. Read the endpoint code to see what it expects\n3. Try the same request via curl through Kong to see the actual error response body\n4. Fix either the test (if the test is wrong) or the service (if the service is wrong)\n5. Run `dotnet test test/Snapp.Service.Content.Tests/` to verify the fix\n\nDo NOT change the API contract in Snapp.Shared without documenting why.",
+      "done_when": "CreatePost_Member_ReturnsCreated passes. No other tests broken."
+    },
+    {
+      "id": "S4.1-002",
+      "title": "Fix DeleteReply_Author_Succeeds — returns 404 instead of 200",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "The integration test DeleteReply_Author_Succeeds in test/Snapp.Service.Content.Tests/ContentIntegrationTests.cs is failing:\n\n  Expected deleteResp.StatusCode to be HttpStatusCode.OK {value: 200}, but found HttpStatusCode.NotFound {value: 404}.\n\nDiagnose and fix. Likely causes:\n1. The DELETE endpoint route doesn't match what the test calls (e.g., route parameter mismatch, missing route segment)\n2. The endpoint exists but the reply lookup fails (wrong PK/SK pattern, wrong threadId/replyId extraction)\n3. The Kong route doesn't match the DELETE method for this path\n\nSteps:\n1. Read the test to see the exact URL it calls\n2. Read the endpoint registration to see the route pattern\n3. Check Kong config for the content service routes\n4. Try via curl to isolate whether it's Kong routing or service logic\n5. Fix the root cause\n6. Run `dotnet test test/Snapp.Service.Content.Tests/` to verify\n\nDo NOT change the API contract in Snapp.Shared without documenting why.",
+      "done_when": "DeleteReply_Author_Succeeds passes. No other tests broken."
+    },
+    {
+      "id": "S4.1-003",
+      "title": "Fix test parallelism race condition on Papercut emails",
+      "agent": "quinn",
+      "depends_on": [],
+      "prompt": "When running `dotnet test snapp.sln` (all tests in parallel), Auth and User integration tests fail intermittently because they race on Papercut email extraction. This was documented as a known issue in Sprint 3 but never fixed.\n\nThe problem: multiple test suites simultaneously send magic link emails and then query Papercut for the most recent email for a given address. When tests run in parallel, one test's email gets picked up by another test's extraction.\n\nFix this with one or more of these approaches:\n\n1. **Unique email addresses per test**: each test should use a UUID-based email (e.g., `test-{guid}@example.com`) so Papercut queries never collide. Update PapercutClient.GetMessagesForRecipientAsync to filter by exact recipient.\n\n2. **Sequential test execution for integration tests**: add `[Collection(\"DockerIntegration\")]` to all integration test classes so xUnit runs them sequentially (not in parallel). Unit tests (Shared, Client) can still run in parallel.\n\n3. **Clear Papercut between tests**: call PapercutClient.DeleteAllMessagesAsync() in each test's setup to ensure a clean inbox.\n\nApply whichever combination works. Then verify by running:\n  `dotnet test snapp.sln`\n\nAll tests must pass when run together, not just individually.",
+      "done_when": "`dotnet test snapp.sln` passes with zero failures. No test ordering or parallelism issues."
+    },
+    {
+      "id": "S4.1-004",
+      "title": "Sprint 4.1 validation — full solution test",
+      "agent": "quinn",
+      "depends_on": ["S4.1-001", "S4.1-002", "S4.1-003"],
+      "prompt": "Run the complete test suite to verify all fixes:\n\n1. `dotnet test snapp.sln` — ALL tests must pass in a single run\n2. Count total tests across all suites\n3. Run `dotnet test test/Snapp.Service.Content.Tests/` individually to confirm content fixes\n4. Run `dotnet test snapp.sln` a second time to confirm no flaky/intermittent failures\n5. Update .claude/reports/ with a brief fix validation report\n6. Commit all changes",
+      "done_when": "dotnet test snapp.sln passes twice in a row with zero failures. Total test count documented."
+    }
+  ]
+}
