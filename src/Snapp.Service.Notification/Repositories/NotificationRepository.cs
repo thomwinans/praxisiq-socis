@@ -207,9 +207,7 @@ public class NotificationRepository : INotificationRepository
             ["UserId"] = new(prefs.UserId),
             ["DigestTime"] = new(prefs.DigestTime),
             ["Timezone"] = new(prefs.Timezone),
-            ["ImmediateTypes"] = immediateTypesJson.Count > 0
-                ? new() { L = immediateTypesJson }
-                : new() { L = [] },
+            ["ImmediateTypes"] = new() { L = immediateTypesJson, IsLSet = true },
         };
 
         await _db.PutItemAsync(new PutItemRequest
