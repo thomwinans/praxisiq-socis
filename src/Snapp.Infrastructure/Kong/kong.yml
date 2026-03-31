@@ -44,6 +44,7 @@ routes:
       - /api/auth/magic-link
     methods:
       - POST
+      - OPTIONS
     strip_path: false
     tags: [snapp, auth, public]
 
@@ -53,6 +54,7 @@ routes:
       - /api/auth/validate
     methods:
       - POST
+      - OPTIONS
     strip_path: false
     tags: [snapp, auth, public]
 
@@ -62,6 +64,7 @@ routes:
       - /api/auth/refresh
     methods:
       - POST
+      - OPTIONS
     strip_path: false
     tags: [snapp, auth, public]
 
@@ -72,6 +75,7 @@ routes:
       - /api/auth/logout
     methods:
       - POST
+      - OPTIONS
     strip_path: false
     tags: [snapp, auth, protected]
 
