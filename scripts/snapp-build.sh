@@ -30,6 +30,8 @@ PROGRESS_FILE="${PROJECT_ROOT}/.claude/tasks/progress.json"
 SPRINT_FILE="${1:-.claude/tasks/sprint-1.json}"
 DRY_RUN=false
 RESUME_FROM=""
+CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
+CLAUDE_BUDGET="${CLAUDE_BUDGET:-10.00}"
 
 # Parse flags
 shift || true
@@ -194,9 +196,9 @@ PROMPT_EOF
     claude \
         --print \
         --dangerously-skip-permissions \
-        --model opus \
+        --model "$CLAUDE_MODEL" \
         --verbose \
-        --max-budget-usd 5.00 \
+        --max-budget-usd "$CLAUDE_BUDGET" \
         "$full_prompt" \
         > "$task_log" 2>&1 || exit_code=$?
 
