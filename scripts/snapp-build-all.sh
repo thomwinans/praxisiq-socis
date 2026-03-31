@@ -52,6 +52,7 @@ SPRINTS=(
     "sprint-12.json"
     "sprint-13.json"
     "sprint-14.json"
+    "sprint-14.5.json"
     "sprint-15.json"
     "sprint-16.json"
 )

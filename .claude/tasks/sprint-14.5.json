@@ -1,0 +1,38 @@
+{
+  "sprint": "S14.5",
+  "description": "OpenAPI SDK — Collect per-service specs, merge into unified spec, generate C# SDK via Kiota, wire into Blazor client",
+  "tasks": [
+    {
+      "id": "S14.5-001",
+      "title": "Collect and merge OpenAPI specs from all services",
+      "agent": "delta",
+      "depends_on": [],
+      "prompt": "All 8 SNAPP services already expose OpenAPI specs via /openapi/v1.json. Create tooling to collect and merge them.\n\n1. Create scripts/collect-openapi.sh that:\n   a. Ensures Docker Compose is running (all service containers up)\n   b. For each service (auth, user, network, content, intelligence, transaction, notification, linkedin):\n      - Fetches http://localhost:8000/api/{service-path}/openapi/v1.json via Kong\n      - If a service doesn't expose the spec at that path, try http://localhost:{direct-port}/openapi/v1.json directly\n      - Saves to api/specs/{service}.json\n   c. Reports which specs were collected successfully\n\n2. Create src/Snapp.Tools.SpecMerge/ as a .NET console app that:\n   - Reads all JSON specs from api/specs/\n   - Merges into a single OpenAPI 3.1 document:\n     - Combines all paths (prefixed by service if needed)\n     - Deduplicates shared schemas (DTOs from Snapp.Shared appear in multiple specs)\n     - Adds unified security scheme: Bearer JWT\n     - Adds server URLs: http://localhost:8000/api (dev), https://api.{domain} (prod placeholder)\n     - Sets info.title = 'SNAPP API', info.version from git tag or '0.1.0'\n   - Outputs api/snapp-api.json and api/snapp-api.yaml\n   - Validates the merged spec is well-formed\n\n3. Create scripts/merge-openapi.sh that:\n   a. Runs collect-openapi.sh\n   b. Runs dotnet run --project src/Snapp.Tools.SpecMerge\n   c. Reports success/failure and endpoint count\n\n4. Add Swagger UI volume mount or config to serve the merged spec at http://localhost:8090\n\nTest: run merge-openapi.sh, verify api/snapp-api.json exists and contains endpoints from all 8 services.",
+      "done_when": "collect-openapi.sh fetches specs from all services. SpecMerge tool produces valid merged api/snapp-api.json. Swagger UI serves it."
+    },
+    {
+      "id": "S14.5-002",
+      "title": "Generate C# SDK via Kiota",
+      "agent": "bex",
+      "depends_on": ["S14.5-001"],
+      "prompt": "Generate a typed C# SDK from the merged OpenAPI spec using Microsoft Kiota.\n\n1. Install Kiota if not present: `dotnet tool install --global Microsoft.OpenApi.Kiota` (or use the dotnet tool manifest)\n\n2. Create scripts/generate-sdk.sh that:\n   a. Runs merge-openapi.sh first (ensures spec is current)\n   b. Runs Kiota to generate the SDK:\n      kiota generate \\\n        --language CSharp \\\n        --openapi api/snapp-api.json \\\n        --output src/Snapp.Sdk/Generated \\\n        --class-name SnappApiClient \\\n        --namespace-name Snapp.Sdk \\\n        --exclude-backward-compatible\n   c. The generated code goes into src/Snapp.Sdk/Generated/\n\n3. Update src/Snapp.Sdk/Snapp.Sdk.csproj:\n   - Add Kiota dependencies: Microsoft.Kiota.Abstractions, Microsoft.Kiota.Http.HttpClientLibrary, Microsoft.Kiota.Serialization.Json, Microsoft.Kiota.Authentication.Azure (or a custom Bearer provider)\n   - Reference Snapp.Shared (for shared DTOs if Kiota can use them)\n\n4. Create src/Snapp.Sdk/Authentication/BearerTokenProvider.cs:\n   - Implements Kiota's IAuthenticationProvider\n   - Accepts an access token string (or a Func<Task<string>> token provider)\n   - Attaches Authorization: Bearer {token} to all requests\n\n5. Create src/Snapp.Sdk/Extensions/ServiceCollectionExtensions.cs:\n   - AddSnappSdk(this IServiceCollection services, Action<SnappSdkOptions> configure)\n   - Registers SnappApiClient in DI with HttpClient + BearerTokenProvider\n   - SnappSdkOptions: BaseUrl, TokenProvider\n\n6. Verify: `dotnet build src/Snapp.Sdk/` compiles with zero errors\n\n7. Write a simple test in test/Snapp.Sdk.Tests/ that instantiates SnappApiClient and verifies it has the expected API surface (auth, users, networks, content, intel, tx, notif, linkedin properties).",
+      "done_when": "Kiota generates SDK from merged spec. Snapp.Sdk builds. BearerTokenProvider works. DI extension registers correctly. SDK test passes."
+    },
+    {
+      "id": "S14.5-003",
+      "title": "Wire SDK into Blazor client",
+      "agent": "frankie",
+      "depends_on": ["S14.5-002"],
+      "prompt": "Integrate Snapp.Sdk into Snapp.Client so the Blazor app uses the generated typed SDK for API calls.\n\nThis is a refactoring task — the Blazor client currently uses hand-written HttpClient service wrappers. Replace them with the Kiota-generated SnappApiClient where possible.\n\n1. Add project reference: Snapp.Client → Snapp.Sdk\n\n2. Update Snapp.Client/Program.cs:\n   - Register Snapp.Sdk via AddSnappSdk()\n   - Configure BaseUrl from appsettings.json (ApiBaseUrl)\n   - Configure TokenProvider from AuthState (reads JWT from localStorage)\n\n3. Create Snapp.Client/Services/SnappSdkWrapper.cs:\n   - A thin wrapper around SnappApiClient that handles:\n     - Token refresh on 401 (get new token from AuthState, retry)\n     - Error mapping (Kiota exceptions → user-friendly error types)\n   - Injected as a scoped service\n\n4. Update ONE page as a proof-of-concept — choose the simplest one (e.g., Profile/MyProfile.razor):\n   - Replace the hand-written HttpClient call with SnappSdkWrapper\n   - Verify it works the same way\n   - Add a comment: // TODO: migrate remaining pages to SDK\n\n5. Do NOT migrate all pages — this is a proof-of-concept. Future sprints will migrate the rest.\n\n6. Verify: `dotnet build snapp.sln` compiles. The migrated page works correctly. bUnit tests still pass.",
+      "done_when": "Snapp.Sdk wired into Blazor DI. One page migrated as proof-of-concept. Build clean. Existing bUnit tests pass."
+    },
+    {
+      "id": "S14.5-004",
+      "title": "Sprint 14.5 validation",
+      "agent": "quinn",
+      "depends_on": ["S14.5-001", "S14.5-002", "S14.5-003"],
+      "prompt": "Run exactly these steps:\n\n1. `scripts/merge-openapi.sh` — verify merged spec generated\n2. `scripts/generate-sdk.sh` — verify SDK generated\n3. `dotnet build snapp.sln` — record pass/fail\n4. `dotnet test snapp.sln --verbosity quiet` — record per-project counts\n5. Verify api/snapp-api.json exists and contains paths from all 8 services (grep for /api/auth, /api/users, /api/networks, /api/content, /api/intel, /api/tx, /api/notif, /api/linkedin)\n6. Write .claude/reports/sprint-14.5-validation.md with results\n7. `git add -A && git commit -m '[S14.5-004] Sprint 14.5 validation'`\n\nDo NOT investigate failures, fix code, or do manual walkthroughs.",
+      "done_when": "Validation report written. Merged spec has all 8 service paths. SDK builds. All tests pass. Committed."
+    }
+  ]
+}
