@@ -52,6 +52,9 @@ builder.Services.AddSingleton<CareerStageClassifier>();
 // Valuation Engine
 builder.Services.AddSingleton<ValuationEngine>();
 
+// Gap Detection Engine
+builder.Services.AddSingleton<GapDetectionEngine>();
+
 // JSON structured logging
 builder.Logging.AddJsonConsole(options =>
 {
@@ -75,6 +78,7 @@ app.MapDashboardEndpoints();
 app.MapCareerStageEndpoints();
 app.MapValuationEndpoints();
 app.MapMarketEndpoints();
+app.MapQuestionEndpoints();
 
 #if LAMBDA
 await app.RunLambdaAsync();

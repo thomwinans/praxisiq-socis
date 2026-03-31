@@ -554,6 +554,160 @@ public class IntelligenceRepository : IIntelligenceRepository
         }
     }
 
+    // ── Questions & Progression ────────────────────────────────
+
+    public async Task SavePendingQuestionAsync(Endpoints.PendingQuestionItem question)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.QuestionPending}{question.UserId}"),
+            ["SK"] = new(question.QuestionId),
+            ["QuestionId"] = new(question.QuestionId),
+            ["UserId"] = new(question.UserId),
+            ["Type"] = new(question.Type),
+            ["Category"] = new(question.Category),
+            ["Dimension"] = new(question.Dimension),
+            ["PromptText"] = new(question.PromptText),
+            ["UnlockDescription"] = new(question.UnlockDescription),
+            ["Priority"] = new() { N = question.Priority.ToString("F4") },
+            ["CreatedAt"] = new(question.CreatedAt.ToString("O")),
+        };
+
+        if (question.Choices.Count > 0)
+            item["Choices"] = new() { L = question.Choices.Select(c => new AttributeValue(c)).ToList() };
+        if (!string.IsNullOrEmpty(question.RelatedDataPoint))
+            item["RelatedDataPoint"] = new(question.RelatedDataPoint);
+        if (!string.IsNullOrEmpty(question.RelatedValue))
+            item["RelatedValue"] = new(question.RelatedValue);
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = item,
+        });
+    }
+
+    public async Task<List<Endpoints.PendingQuestionItem>> GetPendingQuestionsAsync(string userId)
+    {
+        var response = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.QuestionPending}{userId}"),
+            },
+        });
+
+        return response.Items.Select(MapPendingQuestion).ToList();
+    }
+
+    public async Task<Endpoints.PendingQuestionItem?> GetPendingQuestionAsync(string userId, string questionId)
+    {
+        var response = await _db.GetItemAsync(new GetItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.QuestionPending}{userId}"),
+                ["SK"] = new(questionId),
+            },
+        });
+
+        return response.IsItemSet ? MapPendingQuestion(response.Item) : null;
+    }
+
+    public async Task DeletePendingQuestionAsync(string userId, string questionId)
+    {
+        await _db.DeleteItemAsync(new DeleteItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.QuestionPending}{userId}"),
+                ["SK"] = new(questionId),
+            },
+        });
+    }
+
+    public async Task SaveAnsweredQuestionAsync(Endpoints.AnsweredQuestionItem answer)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.QuestionAnswered}{answer.UserId}"),
+            ["SK"] = new(answer.QuestionId),
+            ["QuestionId"] = new(answer.QuestionId),
+            ["UserId"] = new(answer.UserId),
+            ["Type"] = new(answer.Type),
+            ["Category"] = new(answer.Category),
+            ["Dimension"] = new(answer.Dimension),
+            ["PromptText"] = new(answer.PromptText),
+            ["Answer"] = new(answer.Answer),
+            ["AnsweredAt"] = new(answer.AnsweredAt.ToString("O")),
+        };
+
+        if (!string.IsNullOrEmpty(answer.RelatedDataPoint))
+            item["RelatedDataPoint"] = new(answer.RelatedDataPoint);
+        if (!string.IsNullOrEmpty(answer.RelatedValue))
+            item["RelatedValue"] = new(answer.RelatedValue);
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = item,
+        });
+    }
+
+    public async Task<Endpoints.QuestionProgression> GetProgressionAsync(string userId)
+    {
+        var response = await _db.GetItemAsync(new GetItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Progression}{userId}"),
+                ["SK"] = new(SortKeyValues.Current),
+            },
+        });
+
+        if (!response.IsItemSet)
+            return new Endpoints.QuestionProgression();
+
+        var item = response.Item;
+        return new Endpoints.QuestionProgression
+        {
+            TotalAnswered = item.TryGetValue("TotalAnswered", out var ta) ? int.Parse(ta.N) : 0,
+            TotalUnlocks = item.TryGetValue("TotalUnlocks", out var tu) ? int.Parse(tu.N) : 0,
+            CurrentStreak = item.TryGetValue("CurrentStreak", out var cs) ? int.Parse(cs.N) : 0,
+            LastAnsweredAt = item.TryGetValue("LastAnsweredAt", out var la) ? DateTime.Parse(la.S) : null,
+            LastStreakDate = item.TryGetValue("LastStreakDate", out var ls) ? DateTime.Parse(ls.S) : null,
+        };
+    }
+
+    public async Task SaveProgressionAsync(string userId, Endpoints.QuestionProgression progression)
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.Progression}{userId}"),
+            ["SK"] = new(SortKeyValues.Current),
+            ["UserId"] = new(userId),
+            ["TotalAnswered"] = new() { N = progression.TotalAnswered.ToString() },
+            ["TotalUnlocks"] = new() { N = progression.TotalUnlocks.ToString() },
+            ["CurrentStreak"] = new() { N = progression.CurrentStreak.ToString() },
+        };
+
+        if (progression.LastAnsweredAt.HasValue)
+            item["LastAnsweredAt"] = new(progression.LastAnsweredAt.Value.ToString("O"));
+        if (progression.LastStreakDate.HasValue)
+            item["LastStreakDate"] = new(progression.LastStreakDate.Value.ToString("O"));
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = item,
+        });
+    }
+
     // ── Private helpers ──────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> BuildScoreItem(
@@ -704,6 +858,24 @@ public class IntelligenceRepository : IIntelligenceRepository
         Multiple = item.TryGetValue("Multiple", out var m) ? decimal.Parse(m.N) : null,
         EbitdaMargin = item.TryGetValue("EbitdaMargin", out var em) ? decimal.Parse(em.N) : null,
         ComputedAt = item.TryGetValue("ComputedAt", out var ca) ? DateTime.Parse(ca.S) : DateTime.MinValue,
+    };
+
+    private static Endpoints.PendingQuestionItem MapPendingQuestion(Dictionary<string, AttributeValue> item) => new()
+    {
+        QuestionId = item.TryGetValue("QuestionId", out var qid) ? qid.S : string.Empty,
+        UserId = item.TryGetValue("UserId", out var uid) ? uid.S : string.Empty,
+        Type = item.TryGetValue("Type", out var t) ? t.S : string.Empty,
+        Category = item.TryGetValue("Category", out var cat) ? cat.S : string.Empty,
+        Dimension = item.TryGetValue("Dimension", out var dim) ? dim.S : string.Empty,
+        PromptText = item.TryGetValue("PromptText", out var pt) ? pt.S : string.Empty,
+        Choices = item.TryGetValue("Choices", out var ch) && ch.L is not null
+            ? ch.L.Select(a => a.S).ToList()
+            : new List<string>(),
+        UnlockDescription = item.TryGetValue("UnlockDescription", out var ud) ? ud.S : string.Empty,
+        Priority = item.TryGetValue("Priority", out var pr) ? decimal.Parse(pr.N) : 0m,
+        RelatedDataPoint = item.TryGetValue("RelatedDataPoint", out var rdp) ? rdp.S : null,
+        RelatedValue = item.TryGetValue("RelatedValue", out var rv) ? rv.S : null,
+        CreatedAt = item.TryGetValue("CreatedAt", out var ca) ? DateTime.Parse(ca.S) : DateTime.MinValue,
     };
 
     private static ScoreProfile MapScoreProfile(Dictionary<string, AttributeValue> item) => new()
