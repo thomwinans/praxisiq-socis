@@ -446,6 +446,114 @@ public class IntelligenceRepository : IIntelligenceRepository
         }
     }
 
+    // ── Market Intelligence ─────────────────────────────────────
+
+    public async Task<Endpoints.MarketProfileResponse?> GetMarketProfileAsync(string geoId)
+    {
+        var response = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Market}{geoId}"),
+            },
+        });
+
+        if (response.Items.Count == 0) return null;
+
+        var profile = new Endpoints.MarketProfileResponse
+        {
+            GeoId = geoId,
+            DemographicTrends = new List<Endpoints.DemographicTrend>(),
+            WorkforceIndicators = new List<Endpoints.WorkforceIndicator>(),
+        };
+
+        foreach (var item in response.Items)
+        {
+            var sk = item["SK"].S;
+
+            if (sk == "PROFILE")
+            {
+                profile.GeoName = item.TryGetValue("GeoName", out var gn) ? gn.S : geoId;
+                profile.PractitionerDensity = item.TryGetValue("PractitionerDensity", out var pd) ? decimal.Parse(pd.N) : 0m;
+                profile.CompetitorCount = item.TryGetValue("CompetitorCount", out var cc) ? int.Parse(cc.N) : 0;
+                profile.ConsolidationPressure = item.TryGetValue("ConsolidationPressure", out var cp) ? decimal.Parse(cp.N) : 0m;
+                profile.ComputedAt = item.TryGetValue("ComputedAt", out var ca) ? DateTime.Parse(ca.S) : DateTime.MinValue;
+            }
+            else if (sk.StartsWith("DEMO#"))
+            {
+                profile.DemographicTrends.Add(new Endpoints.DemographicTrend
+                {
+                    Name = item.TryGetValue("Name", out var n) ? n.S : string.Empty,
+                    Value = item.TryGetValue("Value", out var v) ? decimal.Parse(v.N) : 0m,
+                    Unit = item.TryGetValue("Unit", out var u) ? u.S : string.Empty,
+                    Direction = item.TryGetValue("Direction", out var d) ? d.S : "flat",
+                });
+            }
+            else if (sk.StartsWith("WORKFORCE#"))
+            {
+                profile.WorkforceIndicators.Add(new Endpoints.WorkforceIndicator
+                {
+                    Name = item.TryGetValue("Name", out var n) ? n.S : string.Empty,
+                    Value = item.TryGetValue("Value", out var v) ? decimal.Parse(v.N) : 0m,
+                    Unit = item.TryGetValue("Unit", out var u) ? u.S : string.Empty,
+                });
+            }
+        }
+
+        return profile;
+    }
+
+    public async Task SaveMarketProfileAsync(string geoId, string geoName, decimal practitionerDensity,
+        int competitorCount, decimal consolidationPressure,
+        List<Endpoints.DemographicTrend> demographics,
+        List<Endpoints.WorkforceIndicator> workforce)
+    {
+        var now = DateTime.UtcNow.ToString("O");
+
+        var profileItem = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+            ["SK"] = new("PROFILE"),
+            ["GeoId"] = new(geoId),
+            ["GeoName"] = new(geoName),
+            ["PractitionerDensity"] = new() { N = practitionerDensity.ToString("F2") },
+            ["CompetitorCount"] = new() { N = competitorCount.ToString() },
+            ["ConsolidationPressure"] = new() { N = consolidationPressure.ToString("F2") },
+            ["ComputedAt"] = new(now),
+        };
+
+        await _db.PutItemAsync(new PutItemRequest { TableName = TableNames.Intelligence, Item = profileItem });
+
+        foreach (var demo in demographics)
+        {
+            var demoItem = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+                ["SK"] = new($"DEMO#{demo.Name}"),
+                ["Name"] = new(demo.Name),
+                ["Value"] = new() { N = demo.Value.ToString("F2") },
+                ["Unit"] = new(demo.Unit),
+                ["Direction"] = new(demo.Direction),
+            };
+            await _db.PutItemAsync(new PutItemRequest { TableName = TableNames.Intelligence, Item = demoItem });
+        }
+
+        foreach (var wf in workforce)
+        {
+            var wfItem = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+                ["SK"] = new($"WORKFORCE#{wf.Name}"),
+                ["Name"] = new(wf.Name),
+                ["Value"] = new() { N = wf.Value.ToString("F2") },
+                ["Unit"] = new(wf.Unit),
+            };
+            await _db.PutItemAsync(new PutItemRequest { TableName = TableNames.Intelligence, Item = wfItem });
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> BuildScoreItem(

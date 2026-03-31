@@ -859,7 +859,174 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
         body.Base.Should().BeLessThan(body.Upside);
     }
 
+    // ── Market Intelligence Tests ────────────────────────────────
+
+    [Fact]
+    public async Task GetMarketProfile_WithSeedData_ReturnsProfile()
+    {
+        var jwt = await AuthenticateAsync($"intel-market-get-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        await SeedMarketDataAsync("us-tx-dallas", "Dallas-Fort Worth, TX",
+            62.3m, 847, 0.72m,
+            new[] { ("PopulationGrowthRate", 1.8m, "pct_annual", "up"), ("MedianHouseholdIncome", 72000m, "usd", "up") },
+            new[] { ("HygienistAvailability", 3.2m, "per_10k_pop"), ("AssistantAvailability", 5.1m, "per_10k_pop") });
+
+        var response = await _http.GetAsync("/api/intel/market/us-tx-dallas");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<MarketProfileResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.GeoId.Should().Be("us-tx-dallas");
+        body.GeoName.Should().Be("Dallas-Fort Worth, TX");
+        body.PractitionerDensity.Should().Be(62.3m);
+        body.CompetitorCount.Should().Be(847);
+        body.ConsolidationPressure.Should().Be(0.72m);
+        body.DemographicTrends.Should().HaveCount(2);
+        body.DemographicTrends.Should().Contain(d => d.Name == "PopulationGrowthRate" && d.Direction == "up");
+        body.WorkforceIndicators.Should().HaveCount(2);
+        body.WorkforceIndicators.Should().Contain(w => w.Name == "HygienistAvailability");
+    }
+
+    [Fact]
+    public async Task GetMarketProfile_UnknownGeo_ReturnsNotFound()
+    {
+        var jwt = await AuthenticateAsync($"intel-market-nf-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.GetAsync("/api/intel/market/nonexistent-geo");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetMarketProfile_NoAuth_ReturnsUnauthorized()
+    {
+        _http.DefaultRequestHeaders.Authorization = null;
+
+        var response = await _http.GetAsync("/api/intel/market/us-tx-dallas");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CompareMarkets_TwoGeos_ReturnsBothProfiles()
+    {
+        var jwt = await AuthenticateAsync($"intel-market-cmp-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        await SeedMarketDataAsync("us-oh-columbus", "Columbus, OH",
+            51.7m, 412, 0.45m,
+            new[] { ("PopulationGrowthRate", 1.2m, "pct_annual", "up") },
+            new[] { ("HygienistAvailability", 3.8m, "per_10k_pop") });
+
+        await SeedMarketDataAsync("us-fl-miami", "Miami-Dade, FL",
+            55.4m, 623, 0.63m,
+            new[] { ("PopulationGrowthRate", 1.5m, "pct_annual", "up") },
+            new[] { ("HygienistAvailability", 2.9m, "per_10k_pop") });
+
+        var response = await _http.GetAsync("/api/intel/market/compare?geos=us-oh-columbus,us-fl-miami");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<MarketCompareResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Markets.Should().HaveCount(2);
+        body.Markets.Should().Contain(m => m.GeoId == "us-oh-columbus");
+        body.Markets.Should().Contain(m => m.GeoId == "us-fl-miami");
+
+        // Verify different data
+        var columbus = body.Markets.First(m => m.GeoId == "us-oh-columbus");
+        var miami = body.Markets.First(m => m.GeoId == "us-fl-miami");
+        columbus.CompetitorCount.Should().BeLessThan(miami.CompetitorCount);
+    }
+
+    [Fact]
+    public async Task CompareMarkets_MissingGeos_ReturnsBadRequest()
+    {
+        var jwt = await AuthenticateAsync($"intel-market-cmpbad-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.GetAsync("/api/intel/market/compare?geos=only-one");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CompareMarkets_NoGeosParam_ReturnsBadRequest()
+    {
+        var jwt = await AuthenticateAsync($"intel-market-cmpno-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.GetAsync("/api/intel/market/compare");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────
+
+    private async Task SeedMarketDataAsync(string geoId, string geoName,
+        decimal practitionerDensity, int competitorCount, decimal consolidationPressure,
+        (string Name, decimal Value, string Unit, string Direction)[] demographics,
+        (string Name, decimal Value, string Unit)[] workforce)
+    {
+        var now = DateTime.UtcNow.ToString("O");
+
+        // Profile item
+        await _dynamo.Client.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+                ["SK"] = new("PROFILE"),
+                ["GeoId"] = new(geoId),
+                ["GeoName"] = new(geoName),
+                ["PractitionerDensity"] = new() { N = practitionerDensity.ToString("F2") },
+                ["CompetitorCount"] = new() { N = competitorCount.ToString() },
+                ["ConsolidationPressure"] = new() { N = consolidationPressure.ToString("F2") },
+                ["ComputedAt"] = new(now),
+            },
+        });
+
+        foreach (var (name, value, unit, direction) in demographics)
+        {
+            await _dynamo.Client.PutItemAsync(new PutItemRequest
+            {
+                TableName = TableNames.Intelligence,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+                    ["SK"] = new($"DEMO#{name}"),
+                    ["Name"] = new(name),
+                    ["Value"] = new() { N = value.ToString("F2") },
+                    ["Unit"] = new(unit),
+                    ["Direction"] = new(direction),
+                },
+            });
+        }
+
+        foreach (var (name, value, unit) in workforce)
+        {
+            await _dynamo.Client.PutItemAsync(new PutItemRequest
+            {
+                TableName = TableNames.Intelligence,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new($"{KeyPrefixes.Market}{geoId}"),
+                    ["SK"] = new($"WORKFORCE#{name}"),
+                    ["Name"] = new(name),
+                    ["Value"] = new() { N = value.ToString("F2") },
+                    ["Unit"] = new(unit),
+                },
+            });
+        }
+    }
 
     private async Task<string?> AuthenticateAsync(string email)
     {

@@ -1,0 +1,97 @@
+[
+  {
+    "geoId": "us-tx-dallas",
+    "geoName": "Dallas-Fort Worth, TX",
+    "practitionerDensity": 62.3,
+    "competitorCount": 847,
+    "consolidationPressure": 0.72,
+    "demographics": [
+      { "name": "PopulationGrowthRate", "value": 1.8, "unit": "pct_annual", "direction": "up" },
+      { "name": "MedianHouseholdIncome", "value": 72000, "unit": "usd", "direction": "up" },
+      { "name": "InsuredPopulationRate", "value": 78.5, "unit": "pct", "direction": "up" },
+      { "name": "Over65PopulationShare", "value": 12.1, "unit": "pct", "direction": "up" }
+    ],
+    "workforce": [
+      { "name": "HygienistAvailability", "value": 3.2, "unit": "per_10k_pop" },
+      { "name": "AssistantAvailability", "value": 5.1, "unit": "per_10k_pop" },
+      { "name": "NewGraduateSupply", "value": 145, "unit": "annual" },
+      { "name": "MedianHygienistSalary", "value": 82000, "unit": "usd" }
+    ]
+  },
+  {
+    "geoId": "us-ca-losangeles",
+    "geoName": "Los Angeles, CA",
+    "practitionerDensity": 78.9,
+    "competitorCount": 1243,
+    "consolidationPressure": 0.81,
+    "demographics": [
+      { "name": "PopulationGrowthRate", "value": 0.3, "unit": "pct_annual", "direction": "flat" },
+      { "name": "MedianHouseholdIncome", "value": 85000, "unit": "usd", "direction": "up" },
+      { "name": "InsuredPopulationRate", "value": 88.2, "unit": "pct", "direction": "up" },
+      { "name": "Over65PopulationShare", "value": 13.8, "unit": "pct", "direction": "up" }
+    ],
+    "workforce": [
+      { "name": "HygienistAvailability", "value": 4.1, "unit": "per_10k_pop" },
+      { "name": "AssistantAvailability", "value": 6.3, "unit": "per_10k_pop" },
+      { "name": "NewGraduateSupply", "value": 210, "unit": "annual" },
+      { "name": "MedianHygienistSalary", "value": 95000, "unit": "usd" }
+    ]
+  },
+  {
+    "geoId": "us-oh-columbus",
+    "geoName": "Columbus, OH",
+    "practitionerDensity": 51.7,
+    "competitorCount": 412,
+    "consolidationPressure": 0.45,
+    "demographics": [
+      { "name": "PopulationGrowthRate", "value": 1.2, "unit": "pct_annual", "direction": "up" },
+      { "name": "MedianHouseholdIncome", "value": 62000, "unit": "usd", "direction": "up" },
+      { "name": "InsuredPopulationRate", "value": 82.1, "unit": "pct", "direction": "up" },
+      { "name": "Over65PopulationShare", "value": 14.5, "unit": "pct", "direction": "up" }
+    ],
+    "workforce": [
+      { "name": "HygienistAvailability", "value": 3.8, "unit": "per_10k_pop" },
+      { "name": "AssistantAvailability", "value": 5.5, "unit": "per_10k_pop" },
+      { "name": "NewGraduateSupply", "value": 95, "unit": "annual" },
+      { "name": "MedianHygienistSalary", "value": 72000, "unit": "usd" }
+    ]
+  },
+  {
+    "geoId": "us-fl-miami",
+    "geoName": "Miami-Dade, FL",
+    "practitionerDensity": 55.4,
+    "competitorCount": 623,
+    "consolidationPressure": 0.63,
+    "demographics": [
+      { "name": "PopulationGrowthRate", "value": 1.5, "unit": "pct_annual", "direction": "up" },
+      { "name": "MedianHouseholdIncome", "value": 58000, "unit": "usd", "direction": "up" },
+      { "name": "InsuredPopulationRate", "value": 71.3, "unit": "pct", "direction": "up" },
+      { "name": "Over65PopulationShare", "value": 17.2, "unit": "pct", "direction": "up" }
+    ],
+    "workforce": [
+      { "name": "HygienistAvailability", "value": 2.9, "unit": "per_10k_pop" },
+      { "name": "AssistantAvailability", "value": 4.7, "unit": "per_10k_pop" },
+      { "name": "NewGraduateSupply", "value": 110, "unit": "annual" },
+      { "name": "MedianHygienistSalary", "value": 76000, "unit": "usd" }
+    ]
+  },
+  {
+    "geoId": "us-mt-rural",
+    "geoName": "Rural Montana",
+    "practitionerDensity": 18.2,
+    "competitorCount": 87,
+    "consolidationPressure": 0.22,
+    "demographics": [
+      { "name": "PopulationGrowthRate", "value": -0.3, "unit": "pct_annual", "direction": "down" },
+      { "name": "MedianHouseholdIncome", "value": 52000, "unit": "usd", "direction": "flat" },
+      { "name": "InsuredPopulationRate", "value": 74.8, "unit": "pct", "direction": "flat" },
+      { "name": "Over65PopulationShare", "value": 21.3, "unit": "pct", "direction": "up" }
+    ],
+    "workforce": [
+      { "name": "HygienistAvailability", "value": 1.4, "unit": "per_10k_pop" },
+      { "name": "AssistantAvailability", "value": 2.1, "unit": "per_10k_pop" },
+      { "name": "NewGraduateSupply", "value": 12, "unit": "annual" },
+      { "name": "MedianHygienistSalary", "value": 65000, "unit": "usd" }
+    ]
+  }
+]
