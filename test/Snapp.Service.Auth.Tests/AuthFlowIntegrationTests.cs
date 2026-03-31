@@ -33,7 +33,9 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _dynamo.EnsureUsersTableAsync();
-        await _fixture.PapercutClient.DeleteAllMessagesAsync();
+        // Do NOT clear Papercut inbox here — other test assemblies may be running
+        // in parallel. Each test uses a unique UUID email, so recipient filtering
+        // in PapercutClient.GetMessagesForRecipientAsync provides isolation.
     }
 
     public Task DisposeAsync()
@@ -51,9 +53,19 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     {
         email ??= TestEmail;
 
-        var requestResponse = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/magic-link",
-            new MagicLinkRequest { Email = email });
+        // Retry on 429 (rate limit) which can occur during parallel test execution
+        HttpResponseMessage requestResponse;
+        for (var attempt = 0; ; attempt++)
+        {
+            requestResponse = await _http.PostAsJsonAsync(
+                $"{AuthBaseUrl}/magic-link",
+                new MagicLinkRequest { Email = email });
+
+            if (requestResponse.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                break;
+
+            await Task.Delay(1000 * (attempt + 1));
+        }
 
         // If service isn't deployed, Kong returns 503 or 404
         if (requestResponse.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
@@ -62,15 +74,21 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
         requestResponse.StatusCode.Should().Be(HttpStatusCode.OK,
             "POST /api/auth/magic-link should return 200");
 
-        // Wait briefly for email delivery
-        await Task.Delay(1000);
-
         var code = await _fixture.PapercutClient.ExtractMagicLinkCodeAsync(email);
         code.Should().NotBeNullOrEmpty("magic link email should contain a code parameter");
 
-        var validateResponse = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/validate",
-            new MagicLinkValidateRequest { Code = code! });
+        HttpResponseMessage validateResponse;
+        for (var attempt = 0; ; attempt++)
+        {
+            validateResponse = await _http.PostAsJsonAsync(
+                $"{AuthBaseUrl}/validate",
+                new MagicLinkValidateRequest { Code = code! });
+
+            if (validateResponse.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                break;
+
+            await Task.Delay(1000 * (attempt + 1));
+        }
 
         validateResponse.StatusCode.Should().Be(HttpStatusCode.OK,
             "POST /api/auth/validate should return 200 with valid code");
@@ -143,9 +161,18 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
         // Create a magic link, then manually expire it in DynamoDB, then try to validate.
         var email = TestEmail;
 
-        var requestResponse = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/magic-link",
-            new MagicLinkRequest { Email = email });
+        HttpResponseMessage requestResponse;
+        for (var attempt = 0; ; attempt++)
+        {
+            requestResponse = await _http.PostAsJsonAsync(
+                $"{AuthBaseUrl}/magic-link",
+                new MagicLinkRequest { Email = email });
+
+            if (requestResponse.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                break;
+
+            await Task.Delay(1000 * (attempt + 1));
+        }
 
         if (requestResponse.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
         {
@@ -155,7 +182,6 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
 
         requestResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await Task.Delay(1000);
         var code = await _fixture.PapercutClient.ExtractMagicLinkCodeAsync(email);
         code.Should().NotBeNullOrEmpty();
 
@@ -351,9 +377,19 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     public async Task KongRouting_AuthEndpoints_ReachAuthService()
     {
         // Verify Kong routes /api/auth/* to the auth service (not 503/404)
-        var response = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/magic-link",
-            new MagicLinkRequest { Email = TestEmail });
+        // Retry on 429 (rate limit) which can occur during parallel test execution
+        HttpResponseMessage response;
+        for (var attempt = 0; ; attempt++)
+        {
+            response = await _http.PostAsJsonAsync(
+                $"{AuthBaseUrl}/magic-link",
+                new MagicLinkRequest { Email = TestEmail });
+
+            if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                break;
+
+            await Task.Delay(1000 * (attempt + 1));
+        }
 
         // Auth service should respond (not Kong's 503 for missing upstream)
         response.StatusCode.Should().NotBe(HttpStatusCode.ServiceUnavailable,
@@ -509,9 +545,19 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
     {
         var email = TestEmail;
 
-        var requestResponse = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/magic-link",
-            new MagicLinkRequest { Email = email });
+        // Retry on 429 (rate limit) which can occur during parallel test execution
+        HttpResponseMessage requestResponse;
+        for (var attempt = 0; ; attempt++)
+        {
+            requestResponse = await _http.PostAsJsonAsync(
+                $"{AuthBaseUrl}/magic-link",
+                new MagicLinkRequest { Email = email });
+
+            if (requestResponse.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                break;
+
+            await Task.Delay(1000 * (attempt + 1));
+        }
 
         if (requestResponse.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
         {
@@ -521,10 +567,8 @@ public class AuthFlowIntegrationTests : IAsyncLifetime
 
         requestResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await Task.Delay(1000);
-
-        // Get the raw email from Papercut
-        var messages = await _fixture.PapercutClient.GetMessagesForRecipientAsync(email);
+        // Get the raw email from Papercut (polls until message arrives)
+        var messages = await _fixture.PapercutClient.WaitForMessagesAsync(email);
         messages.Should().NotBeEmpty("magic link email should be received by Papercut");
 
         var latest = messages.OrderByDescending(m => m.ReceivedAt).First();

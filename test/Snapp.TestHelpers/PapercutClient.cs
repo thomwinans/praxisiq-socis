@@ -57,24 +57,52 @@ public sealed class PapercutClient : IDisposable
             .ToList();
     }
 
+    /// <summary>
+    /// Polls Papercut until at least one message arrives for the given recipient.
+    /// Returns the matching messages, or an empty list if none arrive within the timeout.
+    /// </summary>
+    public async Task<List<EmailMessage>> WaitForMessagesAsync(string email, int maxRetries = 5, int delayMs = 500)
+    {
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            var messages = await GetMessagesForRecipientAsync(email);
+            if (messages.Count > 0)
+                return messages;
+
+            if (attempt < maxRetries)
+                await Task.Delay(delayMs);
+        }
+
+        return [];
+    }
+
     public async Task DeleteAllMessagesAsync()
     {
         var response = await _http.DeleteAsync("/api/messages");
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<string?> ExtractMagicLinkCodeAsync(string email)
+    public async Task<string?> ExtractMagicLinkCodeAsync(string email, int maxRetries = 5, int delayMs = 500)
     {
-        var messages = await GetMessagesForRecipientAsync(email);
-        var latest = messages
-            .OrderByDescending(m => m.ReceivedAt)
-            .FirstOrDefault();
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            var messages = await GetMessagesForRecipientAsync(email);
+            var latest = messages
+                .OrderByDescending(m => m.ReceivedAt)
+                .FirstOrDefault();
 
-        if (latest?.Body is null)
-            return null;
+            if (latest?.Body is not null)
+            {
+                var match = Regex.Match(latest.Body, @"code=([A-Za-z0-9_-]+)");
+                if (match.Success)
+                    return match.Groups[1].Value;
+            }
 
-        var match = Regex.Match(latest.Body, @"code=([A-Za-z0-9_-]+)");
-        return match.Success ? match.Groups[1].Value : null;
+            if (attempt < maxRetries)
+                await Task.Delay(delayMs);
+        }
+
+        return null;
     }
 
     private async Task<EmailMessage?> GetMessageDetailAsync(string id)

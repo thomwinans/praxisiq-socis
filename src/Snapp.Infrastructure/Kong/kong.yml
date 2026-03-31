@@ -169,7 +169,7 @@ plugins:
 
   - name: rate-limiting
     config:
-      minute: 120
+      minute: 600
       policy: local
       fault_tolerant: true
       hide_client_headers: false

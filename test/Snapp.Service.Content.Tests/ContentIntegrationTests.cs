@@ -40,7 +40,9 @@ public class ContentIntegrationTests : IAsyncLifetime
         await EnsureNetworksTableAsync();
         await EnsureContentTableAsync();
         await EnsureNotificationsTableAsync();
-        await _fixture.PapercutClient.DeleteAllMessagesAsync();
+        // Do NOT clear Papercut inbox here — other test assemblies may be running
+        // in parallel. Each test uses a unique UUID email, so recipient filtering
+        // in PapercutClient.GetMessagesForRecipientAsync provides isolation.
     }
 
     public Task DisposeAsync()
@@ -420,14 +422,30 @@ public class ContentIntegrationTests : IAsyncLifetime
     {
         try
         {
-            var magicResp = await _http.PostAsJsonAsync("/api/auth/magic-link", new { Email = email });
+            // Request magic link, retry on 429 (rate limit during parallel tests)
+            HttpResponseMessage magicResp;
+            for (var attempt = 0; ; attempt++)
+            {
+                magicResp = await _http.PostAsJsonAsync("/api/auth/magic-link", new { Email = email });
+                if (magicResp.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                    break;
+                await Task.Delay(1000 * (attempt + 1));
+            }
             if (!magicResp.IsSuccessStatusCode) return null;
 
-            await Task.Delay(500);
+            // Extract code from Papercut (polls with retries internally)
             var code = await _fixture.PapercutClient.ExtractMagicLinkCodeAsync(email);
             if (code is null) return null;
 
-            var validateResp = await _http.PostAsJsonAsync("/api/auth/validate", new { Code = code });
+            // Validate and get JWT, retry on 429
+            HttpResponseMessage validateResp;
+            for (var attempt = 0; ; attempt++)
+            {
+                validateResp = await _http.PostAsJsonAsync("/api/auth/validate", new { Code = code });
+                if (validateResp.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                    break;
+                await Task.Delay(1000 * (attempt + 1));
+            }
             if (!validateResp.IsSuccessStatusCode) return null;
 
             var tokenBody = await validateResp.Content.ReadFromJsonAsync<JsonElement>();

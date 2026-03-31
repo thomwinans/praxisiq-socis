@@ -36,7 +36,9 @@ public class UserProfileIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _dynamo.EnsureUsersTableAsync();
-        await _fixture.PapercutClient.DeleteAllMessagesAsync();
+        // Do NOT clear Papercut inbox here — other test assemblies may be running
+        // in parallel. Each test uses a unique UUID email, so recipient filtering
+        // in PapercutClient.GetMessagesForRecipientAsync provides isolation.
     }
 
     public Task DisposeAsync()
@@ -54,23 +56,40 @@ public class UserProfileIntegrationTests : IAsyncLifetime
     {
         email ??= $"testuser-{Guid.NewGuid():N}@example.com";
 
-        var requestResponse = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/magic-link",
-            new MagicLinkRequest { Email = email });
+        // Retry on 429 (rate limit) which can occur during parallel test execution
+        HttpResponseMessage requestResponse;
+        for (var attempt = 0; ; attempt++)
+        {
+            requestResponse = await _http.PostAsJsonAsync(
+                $"{AuthBaseUrl}/magic-link",
+                new MagicLinkRequest { Email = email });
 
-        if (requestResponse.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
-            return null;
+            if (requestResponse.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
+                return null;
+
+            if (requestResponse.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                break;
+
+            await Task.Delay(1000 * (attempt + 1));
+        }
 
         requestResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        await Task.Delay(1000);
 
         var code = await _fixture.PapercutClient.ExtractMagicLinkCodeAsync(email);
         if (string.IsNullOrEmpty(code)) return null;
 
-        var validateResponse = await _http.PostAsJsonAsync(
-            $"{AuthBaseUrl}/validate",
-            new MagicLinkValidateRequest { Code = code });
+        HttpResponseMessage validateResponse;
+        for (var attempt = 0; ; attempt++)
+        {
+            validateResponse = await _http.PostAsJsonAsync(
+                $"{AuthBaseUrl}/validate",
+                new MagicLinkValidateRequest { Code = code });
+
+            if (validateResponse.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 3)
+                break;
+
+            await Task.Delay(1000 * (attempt + 1));
+        }
 
         validateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
