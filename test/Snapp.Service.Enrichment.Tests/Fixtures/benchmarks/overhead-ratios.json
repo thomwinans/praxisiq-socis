@@ -1,0 +1,17 @@
+[
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OverheadRatio","p25":55.0,"p50":62.0,"p75":70.0,"mean":62.5,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"OverheadRatio","p25":58.0,"p50":64.0,"p75":72.0,"mean":64.8,"sampleSize":834},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"large","geography":"national","geographicLevel":"national","metricName":"OverheadRatio","p25":60.0,"p50":66.0,"p75":74.0,"mean":66.5,"sampleSize":412},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"StaffCostRatio","p25":22.0,"p50":27.0,"p75":33.0,"mean":27.5,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"FacilityCostRatio","p25":5.0,"p50":7.0,"p75":10.0,"mean":7.3,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"LabCostRatio","p25":8.0,"p50":10.0,"p75":13.0,"mean":10.2,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"SupplyCostRatio","p25":5.0,"p50":6.5,"p75":8.0,"mean":6.6,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ProfitMargin","p25":18.0,"p50":28.0,"p75":38.0,"mean":28.5,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"ProfitMargin","p25":16.0,"p50":26.0,"p75":35.0,"mean":26.2,"sampleSize":834},
+  {"vertical":"dental","specialty":"Orthodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OverheadRatio","p25":50.0,"p50":57.0,"p75":65.0,"mean":57.5,"sampleSize":487},
+  {"vertical":"dental","specialty":"Orthodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ProfitMargin","p25":22.0,"p50":33.0,"p75":43.0,"mean":33.5,"sampleSize":487},
+  {"vertical":"dental","specialty":"Oral Surgery","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OverheadRatio","p25":48.0,"p50":55.0,"p75":63.0,"mean":55.8,"sampleSize":356},
+  {"vertical":"dental","specialty":"Oral Surgery","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ProfitMargin","p25":25.0,"p50":35.0,"p75":45.0,"mean":35.5,"sampleSize":356},
+  {"vertical":"dental","specialty":"Endodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ProfitMargin","p25":20.0,"p50":30.0,"p75":40.0,"mean":30.2,"sampleSize":289},
+  {"vertical":"dental","specialty":"Periodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ProfitMargin","p25":19.0,"p50":29.0,"p75":38.0,"mean":29.0,"sampleSize":267}
+]

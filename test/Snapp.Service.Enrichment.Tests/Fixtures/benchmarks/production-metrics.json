@@ -1,0 +1,15 @@
+[
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ProductionPerProvider","p25":550000,"p50":700000,"p75":900000,"mean":720000,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"ProductionPerProvider","p25":500000,"p50":650000,"p75":850000,"mean":680000,"sampleSize":834},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"CollectionRate","p25":92.0,"p50":96.0,"p75":98.5,"mean":95.5,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"NewPatientsPerMonth","p25":15,"p50":28,"p75":45,"mean":30,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"NewPatientsPerMonth","p25":25,"p50":45,"p75":70,"mean":48,"sampleSize":834},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ActivePatientCount","p25":1200,"p50":1800,"p75":2500,"mean":1850,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"ActivePatientCount","p25":2800,"p50":4200,"p75":6000,"mean":4400,"sampleSize":834},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"HygieneDaysPerWeek","p25":3.0,"p50":4.5,"p75":6.0,"mean":4.5,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"CaseAcceptanceRate","p25":55.0,"p50":68.0,"p75":82.0,"mean":68.5,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"RevenuePerNewPatient","p25":350,"p50":500,"p75":720,"mean":530,"sampleSize":1247},
+  {"vertical":"dental","specialty":"Orthodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"CaseStartsPerMonth","p25":12,"p50":20,"p75":30,"mean":21,"sampleSize":487},
+  {"vertical":"dental","specialty":"Orthodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"AverageCaseFee","p25":4800,"p50":5800,"p75":7000,"mean":5900,"sampleSize":487},
+  {"vertical":"dental","specialty":"Oral Surgery","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"ProductionPerProvider","p25":700000,"p50":950000,"p75":1300000,"mean":1000000,"sampleSize":356}
+]

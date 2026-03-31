@@ -1,0 +1,16 @@
+[
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":550000,"p50":780000,"p75":1050000,"mean":810000,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":1100000,"p50":1650000,"p75":2200000,"mean":1720000,"sampleSize":834},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"large","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":2400000,"p50":3500000,"p75":5200000,"mean":3800000,"sampleSize":412},
+  {"vertical":"dental","specialty":"Pediatric Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":620000,"p50":870000,"p75":1180000,"mean":900000,"sampleSize":523},
+  {"vertical":"dental","specialty":"Pediatric Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":1300000,"p50":1900000,"p75":2600000,"mean":1980000,"sampleSize":311},
+  {"vertical":"dental","specialty":"Orthodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":700000,"p50":1050000,"p75":1400000,"mean":1080000,"sampleSize":487},
+  {"vertical":"dental","specialty":"Orthodontics","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":1500000,"p50":2100000,"p75":2900000,"mean":2200000,"sampleSize":298},
+  {"vertical":"dental","specialty":"Oral Surgery","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":800000,"p50":1200000,"p75":1700000,"mean":1250000,"sampleSize":356},
+  {"vertical":"dental","specialty":"Endodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":580000,"p50":820000,"p75":1100000,"mean":850000,"sampleSize":289},
+  {"vertical":"dental","specialty":"Periodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":520000,"p50":750000,"p75":1020000,"mean":780000,"sampleSize":267},
+  {"vertical":"dental","specialty":"Prosthodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"Revenue","p25":490000,"p50":710000,"p75":980000,"mean":740000,"sampleSize":198},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"AZ","geographicLevel":"state","metricName":"Revenue","p25":520000,"p50":740000,"p75":1000000,"mean":770000,"sampleSize":189},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"TX","geographicLevel":"state","metricName":"Revenue","p25":570000,"p50":800000,"p75":1080000,"mean":830000,"sampleSize":312},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"CA","geographicLevel":"state","metricName":"Revenue","p25":610000,"p50":870000,"p75":1200000,"mean":910000,"sampleSize":478}
+]

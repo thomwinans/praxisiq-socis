@@ -1,0 +1,14 @@
+[
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OwnerCompensation","p25":180000,"p50":250000,"p75":350000,"mean":265000,"sampleSize":1247},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"OwnerCompensation","p25":280000,"p50":400000,"p75":550000,"mean":420000,"sampleSize":834},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"AssociateDentistComp","p25":140000,"p50":175000,"p75":220000,"mean":180000,"sampleSize":623},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"AssociateDentistComp","p25":160000,"p50":200000,"p75":260000,"mean":210000,"sampleSize":534},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"HygienistComp","p25":62000,"p50":78000,"p75":92000,"mean":77000,"sampleSize":1890},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"medium","geography":"national","geographicLevel":"national","metricName":"HygienistComp","p25":68000,"p50":82000,"p75":98000,"mean":83000,"sampleSize":1456},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"DentalAssistantComp","p25":35000,"p50":42000,"p75":52000,"mean":43000,"sampleSize":2340},
+  {"vertical":"dental","specialty":"General Practice Dentistry","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OfficeManagerComp","p25":48000,"p50":58000,"p75":72000,"mean":60000,"sampleSize":1120},
+  {"vertical":"dental","specialty":"Orthodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OwnerCompensation","p25":220000,"p50":320000,"p75":450000,"mean":340000,"sampleSize":487},
+  {"vertical":"dental","specialty":"Oral Surgery","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OwnerCompensation","p25":300000,"p50":420000,"p75":600000,"mean":450000,"sampleSize":356},
+  {"vertical":"dental","specialty":"Endodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OwnerCompensation","p25":200000,"p50":290000,"p75":380000,"mean":300000,"sampleSize":289},
+  {"vertical":"dental","specialty":"Periodontics","sizeBand":"small","geography":"national","geographicLevel":"national","metricName":"OwnerCompensation","p25":190000,"p50":270000,"p75":360000,"mean":280000,"sampleSize":267}
+]

@@ -239,6 +239,130 @@ public class EnrichmentRepository
         return response.IsItemSet ? response.Item : null;
     }
 
+    public async Task SaveBenchmarksBatchAsync(List<BenchmarkRecord> records)
+    {
+        var now = DateTime.UtcNow.ToString("O");
+        var itemsByKey = new Dictionary<string, Dictionary<string, AttributeValue>>();
+
+        foreach (var record in records)
+        {
+            // National cohort: COHORT#{vertical}#{specialty}#{sizeBand}
+            // Geographic (state/county): BENCH#{vertical}#{geo}#{level}
+            var pk = record.GeographicLevel == "national"
+                && !string.IsNullOrEmpty(record.Specialty) && !string.IsNullOrEmpty(record.SizeBand)
+                    ? $"{KeyPrefixes.Cohort}{record.Vertical}#{record.Specialty}#{record.SizeBand}"
+                    : $"{KeyPrefixes.Benchmark}{record.Vertical}#{record.Geography}#{record.GeographicLevel}";
+
+            var sk = $"METRIC#{record.MetricName}";
+
+            var item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new(pk),
+                ["SK"] = new(sk),
+                ["MetricName"] = new(record.MetricName),
+                ["P25"] = new() { N = record.P25.ToString("F2") },
+                ["P50"] = new() { N = record.P50.ToString("F2") },
+                ["P75"] = new() { N = record.P75.ToString("F2") },
+                ["SampleSize"] = new() { N = record.SampleSize.ToString() },
+                ["ComputedAt"] = new(now),
+                ["Geography"] = new(record.Geography),
+                ["Vertical"] = new(record.Vertical),
+                ["Source"] = new("association-benchmark"),
+                ["GSI1PK"] = new(pk),
+                ["GSI1SK"] = new(sk),
+            };
+
+            if (record.Mean.HasValue)
+                item["Mean"] = new() { N = record.Mean.Value.ToString("F2") };
+            if (!string.IsNullOrEmpty(record.Specialty))
+                item["Specialty"] = new(record.Specialty);
+            if (!string.IsNullOrEmpty(record.SizeBand))
+                item["SizeBand"] = new(record.SizeBand);
+            if (!string.IsNullOrEmpty(record.GeographicLevel))
+                item["GeographicLevel"] = new(record.GeographicLevel);
+
+            // Dedup by PK+SK (last-write-wins)
+            itemsByKey[$"{pk}|{sk}"] = item;
+        }
+
+        foreach (var chunk in itemsByKey.Values.Chunk(25))
+        {
+            var requests = chunk
+                .Select(item => new WriteRequest { PutRequest = new PutRequest { Item = item } })
+                .ToList();
+
+            await _db.BatchWriteItemAsync(new BatchWriteItemRequest
+            {
+                RequestItems = new Dictionary<string, List<WriteRequest>>
+                {
+                    [TableNames.Intelligence] = requests,
+                },
+            });
+        }
+    }
+
+    public async Task SaveRegulatorySignalsBatchAsync(List<RegulatoryRecord> records)
+    {
+        var chunks = records.Chunk(25);
+        foreach (var chunk in chunks)
+        {
+            var requests = new List<WriteRequest>();
+            foreach (var record in chunk)
+            {
+                var now = DateTime.UtcNow.ToString("O");
+                var signalId = Ulid.NewUlid().ToString();
+
+                var item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new($"{KeyPrefixes.Signal}{record.Npi}"),
+                    ["SK"] = new($"REGULATORY#{signalId}"),
+                    ["SignalId"] = new(signalId),
+                    ["Npi"] = new(record.Npi),
+                    ["TotalPrescriptions"] = new() { N = record.TotalPrescriptions.ToString() },
+                    ["OpioidPrescriptions"] = new() { N = record.OpioidPrescriptions.ToString() },
+                    ["AntibioticPrescriptions"] = new() { N = record.AntibioticPrescriptions.ToString() },
+                    ["TotalBeneficiaries"] = new() { N = record.TotalBeneficiaries.ToString() },
+                    ["AverageBeneficiaryAge"] = new() { N = record.AverageBeneficiaryAge.ToString("F1") },
+                    ["FemaleBeneficiaryPct"] = new() { N = record.FemaleBeneficiaryPct.ToString("F1") },
+                    ["DualEligiblePct"] = new() { N = record.DualEligiblePct.ToString("F1") },
+                    ["AverageRiskScore"] = new() { N = record.AverageRiskScore.ToString("F2") },
+                    ["TotalMedicarePayments"] = new() { N = record.TotalMedicarePayments.ToString("F2") },
+                    ["GraduationYear"] = new() { N = record.GraduationYear.ToString() },
+                    ["MedicalSchool"] = new(record.MedicalSchool),
+                    ["Source"] = new(record.Source),
+                    ["EnrichedAt"] = new(now),
+                    ["GSI1PK"] = new($"REGSIGNAL#{record.Source}"),
+                    ["GSI1SK"] = new($"NPI#{record.Npi}"),
+                };
+
+                requests.Add(new WriteRequest { PutRequest = new PutRequest { Item = item } });
+            }
+
+            await _db.BatchWriteItemAsync(new BatchWriteItemRequest
+            {
+                RequestItems = new Dictionary<string, List<WriteRequest>>
+                {
+                    [TableNames.Intelligence] = requests,
+                },
+            });
+        }
+    }
+
+    public async Task<List<Dictionary<string, AttributeValue>>> QueryByPkPrefixAsync(string pk, string skPrefix)
+    {
+        var response = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new(pk),
+                [":prefix"] = new(skPrefix),
+            },
+        });
+        return response.Items;
+    }
+
     private static decimal ComputeConsolidationPressure(MarketRecord market)
     {
         // Heuristic: higher DSO presence + lower provider density = higher pressure

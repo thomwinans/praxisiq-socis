@@ -9,6 +9,8 @@ public class EnrichmentProcessor
     private readonly IProviderSource _providerSource;
     private readonly IMarketSource _marketSource;
     private readonly EnrichmentRepository _repo;
+    private readonly BenchmarkDataLoader _benchmarkLoader;
+    private readonly RegulatoryDataLoader _regulatoryLoader;
     private readonly ILogger<EnrichmentProcessor> _logger;
 
     // Dental NPPES taxonomy codes
@@ -32,11 +34,15 @@ public class EnrichmentProcessor
         IProviderSource providerSource,
         IMarketSource marketSource,
         EnrichmentRepository repo,
+        BenchmarkDataLoader benchmarkLoader,
+        RegulatoryDataLoader regulatoryLoader,
         ILogger<EnrichmentProcessor> logger)
     {
         _providerSource = providerSource;
         _marketSource = marketSource;
         _repo = repo;
+        _benchmarkLoader = benchmarkLoader;
+        _regulatoryLoader = regulatoryLoader;
         _logger = logger;
     }
 
@@ -49,6 +55,24 @@ public class EnrichmentProcessor
 
         // Step 2: Geographic & economic market data
         await EnrichMarketsAsync();
+
+        // Step 3: Association & industry benchmark data (M7.3)
+        await LoadBenchmarksAsync();
+
+        // Step 4: Regulatory & claims data (M7.2)
+        await LoadRegulatoryDataAsync();
+    }
+
+    private async Task LoadBenchmarksAsync()
+    {
+        var count = await _benchmarkLoader.LoadBenchmarksAsync();
+        _logger.LogInformation("Benchmark enrichment complete: {Count} metrics loaded", count);
+    }
+
+    private async Task LoadRegulatoryDataAsync()
+    {
+        var count = await _regulatoryLoader.LoadRegulatoryDataAsync();
+        _logger.LogInformation("Regulatory enrichment complete: {Count} signals loaded", count);
     }
 
     private async Task EnrichProvidersAsync(string vertical)

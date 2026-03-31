@@ -48,6 +48,10 @@ else
 // Market data source (always fixture for now)
 services.AddSingleton<IMarketSource, FixtureMarketSource>();
 
+// Benchmark & regulatory data loaders
+services.AddSingleton<BenchmarkDataLoader>();
+services.AddSingleton<RegulatoryDataLoader>();
+
 // Processor
 services.AddSingleton<EnrichmentProcessor>();
 
