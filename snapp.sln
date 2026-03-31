@@ -71,6 +71,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snapp.TestHelpers", "test\S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snapp.TestHelpers.Tests", "test\Snapp.TestHelpers.Tests\Snapp.TestHelpers.Tests.csproj", "{88575189-6174-4DFD-8EF1-86FE52A34AFE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snapp.Service.Enrichment.Tests", "test\Snapp.Service.Enrichment.Tests\Snapp.Service.Enrichment.Tests.csproj", "{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -465,6 +467,18 @@ Global
 		{88575189-6174-4DFD-8EF1-86FE52A34AFE}.Release|x64.Build.0 = Release|Any CPU
 		{88575189-6174-4DFD-8EF1-86FE52A34AFE}.Release|x86.ActiveCfg = Release|Any CPU
 		{88575189-6174-4DFD-8EF1-86FE52A34AFE}.Release|x86.Build.0 = Release|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Debug|x64.Build.0 = Debug|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Debug|x86.Build.0 = Debug|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Release|x64.ActiveCfg = Release|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Release|x64.Build.0 = Release|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Release|x86.ActiveCfg = Release|Any CPU
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -502,5 +516,6 @@ Global
 		{8B9A019B-0ED3-445C-A9FE-8197E19D191B} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 		{A9011C2D-E984-4B30-B7EE-9878F1FE28F2} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 		{88575189-6174-4DFD-8EF1-86FE52A34AFE} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
+		{5A56E8A2-DC02-42F1-8C80-3EC36B4EE1CE} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 	EndGlobalSection
 EndGlobal

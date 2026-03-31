@@ -269,6 +269,26 @@ services:
     profiles:
       - digest
 
+  snapp-enrichment:
+    build:
+      context: ../../../
+      dockerfile: src/Snapp.Service.Enrichment/Dockerfile
+    container_name: snapp-enrichment
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: fakeAccessKey
+      AWS_SECRET_ACCESS_KEY: fakeSecretKey
+      AWS_DEFAULT_REGION: us-east-1
+      DynamoDB__ServiceURL: http://dynamodb-local:8000
+      Enrichment__Source: fixture
+      Enrichment__Vertical: dental
+    networks:
+      - snapp-net
+    profiles:
+      - enrichment
+
   # ─── Dev Tools ────────────────────────────────────────────────
   swagger-ui:
     image: swaggerapi/swagger-ui:latest

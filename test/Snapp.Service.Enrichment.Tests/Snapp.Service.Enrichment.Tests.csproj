@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Snapp.Service.Enrichment.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Snapp.Service.Enrichment/Snapp.Service.Enrichment.csproj" />
+    <ProjectReference Include="../Snapp.TestHelpers/Snapp.TestHelpers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.*" />
+    <PackageReference Include="FluentAssertions" Version="6.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="Ulid" Version="1.3.4" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Fixtures\providers.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Fixtures\markets.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
