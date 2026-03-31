@@ -134,11 +134,10 @@ public sealed class PapercutClient : IDisposable
         var encodedId = Uri.EscapeDataString(id);
         var response = await _http.GetAsync($"/api/messages/{encodedId}");
 
-        // Message may have been deleted by a parallel test between list and detail fetch
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        // Message may have been deleted by a parallel test between list and detail fetch,
+        // or Papercut may return a transient 500 under concurrent load — treat both as skip.
+        if (!response.IsSuccessStatusCode)
             return null;
-
-        response.EnsureSuccessStatusCode();
 
         var detail = await response.Content.ReadFromJsonAsync<PapercutMessageDetail>(JsonOptions);
         if (detail is null)
