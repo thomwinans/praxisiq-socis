@@ -1,0 +1,269 @@
+@page "/intelligence/contribute"
+@attribute [Authorize]
+@using MudBlazor
+@using Snapp.Client.Services
+@using Snapp.Shared.DTOs.Intelligence
+@inject IIntelligenceService IntelligenceService
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h4" Class="mb-2">Contribute Practice Data</MudText>
+<MudText Typo="Typo.body2" Color="Color.Default" Class="mb-4">
+    Share your practice metrics to improve your intelligence score and unlock benchmarking.
+</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else if (_config is null)
+{
+    <MudAlert Severity="Severity.Error">
+        Failed to load configuration.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadConfigAsync">Retry</MudButton>
+    </MudAlert>
+}
+else
+{
+    @if (_successMessage is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="() => _successMessage = null">
+            @_successMessage
+        </MudAlert>
+    }
+
+    @if (_errorMessage is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="() => _errorMessage = null">
+            @_errorMessage
+        </MudAlert>
+    }
+
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4"
+             @bind-ActivePanelIndex="_activeTab">
+        @foreach (var cat in _config.ContributionCategories)
+        {
+            <MudTabPanel Text="@cat.DisplayName" Icon="@GetCategoryIcon(cat.Category)">
+                @{
+                    var kpis = GetKpisForCategory(cat.Category);
+                }
+                <MudForm @ref="_form">
+                    <MudGrid>
+                        @foreach (var kpi in kpis)
+                        {
+                            <MudItem xs="12" md="6">
+                                @switch (kpi.Unit)
+                                {
+                                    case "%":
+                                        <MudSlider T="double"
+                                                   Value="@GetSliderValue(cat.Category, kpi.Name)"
+                                                   ValueChanged="@(v => SetDataPoint(cat.Category, kpi.Name, v.ToString("F1")))"
+                                                   Min="0" Max="100" Step="0.5"
+                                                   Color="Color.Primary"
+                                                   ValueLabel="true">
+                                            @kpi.DisplayName (@(GetSliderValue(cat.Category, kpi.Name).ToString("F1"))%)
+                                        </MudSlider>
+                                        break;
+                                    case "USD":
+                                        <MudNumericField T="decimal?"
+                                                         Label="@kpi.DisplayName"
+                                                         Adornment="Adornment.Start"
+                                                         AdornmentText="$"
+                                                         Format="N0"
+                                                         Value="@GetNumericValue(cat.Category, kpi.Name)"
+                                                         ValueChanged="@(v => SetDataPoint(cat.Category, kpi.Name, v?.ToString() ?? ""))" />
+                                        break;
+                                    case "count":
+                                        <MudNumericField T="int?"
+                                                         Label="@kpi.DisplayName"
+                                                         Min="0"
+                                                         Value="@GetIntValue(cat.Category, kpi.Name)"
+                                                         ValueChanged="@(v => SetDataPoint(cat.Category, kpi.Name, v?.ToString() ?? ""))" />
+                                        break;
+                                    case "bool":
+                                        <MudSelect T="string"
+                                                   Label="@kpi.DisplayName"
+                                                   Value="@GetDataPoint(cat.Category, kpi.Name)"
+                                                   ValueChanged="@(v => SetDataPoint(cat.Category, kpi.Name, v))">
+                                            <MudSelectItem Value="@("")">-- Select --</MudSelectItem>
+                                            <MudSelectItem Value="@("Yes")">Yes</MudSelectItem>
+                                            <MudSelectItem Value="@("No")">No</MudSelectItem>
+                                        </MudSelect>
+                                        break;
+                                    default:
+                                        <MudTextField T="string"
+                                                      Label="@($"{kpi.DisplayName} ({kpi.Unit})")"
+                                                      Value="@GetDataPoint(cat.Category, kpi.Name)"
+                                                      ValueChanged="@(v => SetDataPoint(cat.Category, kpi.Name, v))" />
+                                        break;
+                                }
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Send"
+                                   Disabled="@(_submitting || !HasDataForCategory(cat.Category))"
+                                   OnClick="@(() => SubmitCategoryAsync(cat.Category))">
+                            @if (_submitting)
+                            {
+                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+                                <span>Submitting...</span>
+                            }
+                            else
+                            {
+                                <span>Submit @cat.DisplayName</span>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </MudForm>
+            </MudTabPanel>
+        }
+    </MudTabs>
+
+    <MudButton Variant="Variant.Text" Color="Color.Default" Class="mt-4"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               Href="/intelligence">
+        Back to Dashboard
+    </MudButton>
+}
+
+@code {
+    private VerticalConfigResponse? _config;
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _successMessage;
+    private string? _errorMessage;
+    private int _activeTab;
+    private MudForm? _form;
+
+    // category -> (kpiName -> value)
+    private readonly Dictionary<string, Dictionary<string, string>> _formData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfigAsync();
+    }
+
+    private async Task LoadConfigAsync()
+    {
+        _loading = true;
+        try
+        {
+            _config = await IntelligenceService.GetVerticalConfigAsync();
+            if (_config is not null)
+            {
+                foreach (var cat in _config.ContributionCategories)
+                    _formData.TryAdd(cat.Category, new Dictionary<string, string>());
+            }
+        }
+        catch
+        {
+            _config = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private List<KpiConfig> GetKpisForCategory(string category)
+    {
+        if (_config is null) return new();
+        return _config.Dimensions
+            .SelectMany(d => d.Kpis)
+            .Where(k => k.Category == category)
+            .ToList();
+    }
+
+    private string GetDataPoint(string category, string kpiName)
+    {
+        if (_formData.TryGetValue(category, out var data) && data.TryGetValue(kpiName, out var val))
+            return val;
+        return "";
+    }
+
+    private double GetSliderValue(string category, string kpiName)
+    {
+        var val = GetDataPoint(category, kpiName);
+        return double.TryParse(val, out var d) ? d : 0;
+    }
+
+    private decimal? GetNumericValue(string category, string kpiName)
+    {
+        var val = GetDataPoint(category, kpiName);
+        return decimal.TryParse(val, out var d) ? d : null;
+    }
+
+    private int? GetIntValue(string category, string kpiName)
+    {
+        var val = GetDataPoint(category, kpiName);
+        return int.TryParse(val, out var i) ? i : null;
+    }
+
+    private void SetDataPoint(string category, string kpiName, string value)
+    {
+        if (!_formData.ContainsKey(category))
+            _formData[category] = new Dictionary<string, string>();
+
+        if (string.IsNullOrWhiteSpace(value))
+            _formData[category].Remove(kpiName);
+        else
+            _formData[category][kpiName] = value;
+    }
+
+    private bool HasDataForCategory(string category)
+    {
+        return _formData.TryGetValue(category, out var data) && data.Count > 0;
+    }
+
+    private async Task SubmitCategoryAsync(string category)
+    {
+        if (!HasDataForCategory(category)) return;
+
+        _submitting = true;
+        _successMessage = null;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var request = new SubmitDataRequest
+            {
+                Category = category,
+                DataPoints = new Dictionary<string, string>(_formData[category]),
+            };
+
+            var result = await IntelligenceService.ContributeDataAsync(request);
+            if (result is not null)
+            {
+                _successMessage = result.Message;
+                _formData[category].Clear();
+            }
+            else
+            {
+                _errorMessage = "Failed to submit data. Please try again.";
+            }
+        }
+        catch
+        {
+            _errorMessage = "An error occurred while submitting data.";
+        }
+        finally
+        {
+            _submitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string GetCategoryIcon(string category) => category switch
+    {
+        "financial" => Icons.Material.Filled.AttachMoney,
+        "owner_risk" => Icons.Material.Filled.Person,
+        "operations" => Icons.Material.Filled.Settings,
+        "client_base" => Icons.Material.Filled.People,
+        "revenue_mix" => Icons.Material.Filled.PieChart,
+        "market" => Icons.Material.Filled.Map,
+        _ => Icons.Material.Filled.DataUsage,
+    };
+}

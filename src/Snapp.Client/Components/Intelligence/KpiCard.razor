@@ -1,0 +1,46 @@
+@using MudBlazor
+@using Snapp.Shared.DTOs.Intelligence
+
+<MudPaper Elevation="1" Class="pa-3">
+    <MudStack Spacing="1">
+        <MudText Typo="Typo.caption" Color="Color.Default">@Kpi.Name</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudText Typo="Typo.h4">@FormatValue()</MudText>
+            <MudIcon Icon="@GetTrendIcon()" Color="@GetTrendColor()" Size="Size.Small" />
+        </MudStack>
+        @if (Kpi.Percentile.HasValue)
+        {
+            <MudProgressLinear Value="@((double)Kpi.Percentile.Value)" Color="Color.Primary" Rounded="true" Size="Size.Small" />
+            <MudText Typo="Typo.caption">@($"{Kpi.Percentile.Value:F0}th percentile")</MudText>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public KpiItem Kpi { get; set; } = new();
+
+    private string FormatValue()
+    {
+        if (string.IsNullOrEmpty(Kpi.Unit)) return Kpi.Value;
+        return Kpi.Unit switch
+        {
+            "USD" => $"${Kpi.Value}",
+            "%" => $"{Kpi.Value}%",
+            _ => $"{Kpi.Value} {Kpi.Unit}",
+        };
+    }
+
+    private string GetTrendIcon() => Kpi.Trend switch
+    {
+        "Up" => Icons.Material.Filled.ArrowUpward,
+        "Down" => Icons.Material.Filled.ArrowDownward,
+        _ => Icons.Material.Filled.Remove,
+    };
+
+    private Color GetTrendColor() => Kpi.Trend switch
+    {
+        "Up" => Color.Success,
+        "Down" => Color.Error,
+        _ => Color.Default,
+    };
+}

@@ -1,0 +1,50 @@
+@using MudBlazor
+
+<MudPaper Elevation="0" Class="pa-3">
+    <MudText Typo="Typo.subtitle2" Class="mb-1">Data Confidence</MudText>
+    <MudProgressLinear Value="@((double)Score)" Color="@GetColor()" Rounded="true" Size="Size.Large" Class="mb-1" />
+    <MudStack Row="true" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.body2" Color="@GetTextColor()">
+            @($"{Score:F0}%") — @GetTierLabel()
+        </MudText>
+        <MudText Typo="Typo.caption" Color="Color.Default">
+            @GetTierDescription()
+        </MudText>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public decimal Score { get; set; }
+
+    private Color GetColor() => Score switch
+    {
+        >= 85 => Color.Success,
+        >= 65 => Color.Info,
+        >= 40 => Color.Warning,
+        _ => Color.Error,
+    };
+
+    private Color GetTextColor() => Score switch
+    {
+        >= 85 => Color.Success,
+        >= 65 => Color.Info,
+        >= 40 => Color.Warning,
+        _ => Color.Error,
+    };
+
+    private string GetTierLabel() => Score switch
+    {
+        >= 85 => "Excellent",
+        >= 65 => "Good",
+        >= 40 => "Fair",
+        _ => "Low",
+    };
+
+    private string GetTierDescription() => Score switch
+    {
+        >= 85 => "High confidence in your data",
+        >= 65 => "Contribute more for better insights",
+        >= 40 => "More data needed for accuracy",
+        _ => "Contribute data to get started",
+    };
+}

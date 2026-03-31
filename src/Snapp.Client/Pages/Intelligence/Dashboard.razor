@@ -1,4 +1,253 @@
 @page "/intelligence"
 @attribute [Authorize]
+@using MudBlazor
+@using Snapp.Client.Components.Intelligence
+@using Snapp.Client.Services
+@using Snapp.Shared.DTOs.Intelligence
+@inject IIntelligenceService IntelligenceService
+@inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4">Intelligence Dashboard</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Practice Intelligence</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        Failed to load dashboard data.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadDashboardAsync">Retry</MudButton>
+    </MudAlert>
+}
+else if (_dashboard is not null)
+{
+    @* Valuation Hero *@
+    @if (_dashboard.ValuationSummary is not null)
+    {
+        var val = _dashboard.ValuationSummary;
+        <MudPaper Elevation="2" Class="pa-6 mb-6">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Practice Valuation Range</MudText>
+            <MudStack Row="true" Justify="Justify.SpaceEvenly" AlignItems="AlignItems.Center">
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">Downside</MudText>
+                    <MudText Typo="Typo.h6">@FormatCurrency(val.Downside)</MudText>
+                </MudStack>
+                <MudIcon Icon="@Icons.Material.Filled.Remove" Size="Size.Small" />
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Color="Color.Primary">Base</MudText>
+                    <MudText Typo="Typo.h4" Color="Color.Primary"><b>@FormatCurrency(val.Base)</b></MudText>
+                </MudStack>
+                <MudIcon Icon="@Icons.Material.Filled.Remove" Size="Size.Small" />
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">Upside</MudText>
+                    <MudText Typo="Typo.h6">@FormatCurrency(val.Upside)</MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-6">
+            Contribute practice data to unlock your valuation estimate.
+            <MudButton Variant="Variant.Text" Color="Color.Info" Href="/intelligence/contribute">Get Started</MudButton>
+        </MudAlert>
+    }
+
+    @* Main Grid *@
+    <MudGrid>
+        @* Scoring Dimensions Chart *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Scoring Dimensions</MudText>
+                @if (_score?.DimensionScores.Any() == true)
+                {
+                    <MudChart ChartType="ChartType.Donut"
+                              InputData="@_dimensionValues"
+                              InputLabels="@_dimensionLabels"
+                              Width="300px" Height="300px" />
+                }
+                else
+                {
+                    <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                        <MudIcon Icon="@Icons.Material.Filled.Analytics" Size="Size.Large" Color="Color.Default" />
+                        <MudText Color="Color.Default">No scores computed yet</MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/intelligence/contribute">
+                            Contribute Data
+                        </MudButton>
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* KPI Grid *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Key Performance Indicators</MudText>
+                @if (_dashboard.KPIs.Any())
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Striped="true">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                                <th>Trend</th>
+                                <th>Percentile</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var kpi in _dashboard.KPIs)
+                            {
+                                <tr>
+                                    <td>@kpi.Name</td>
+                                    <td>@FormatKpiValue(kpi)</td>
+                                    <td>
+                                        <MudIcon Icon="@GetTrendIcon(kpi.Trend)"
+                                                 Color="@GetTrendColor(kpi.Trend)"
+                                                 Size="Size.Small" />
+                                    </td>
+                                    <td>
+                                        @if (kpi.Percentile.HasValue)
+                                        {
+                                            <MudText Typo="Typo.body2">@($"{kpi.Percentile.Value:F0}th")</MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Default">--</MudText>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                else
+                {
+                    <MudText Color="Color.Default" Class="pa-4">No KPIs available. Contribute data to see your metrics.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* Confidence Bar *@
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <ConfidenceBar Score="@_dashboard.ConfidenceScore" />
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* Career Stage (placeholder) *@
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Career Stage</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Default" Class="mt-2">Coming in Sprint 7</MudText>
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="40px" Class="mt-2" />
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        @* Risk Flags (placeholder) *@
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Risk Flags</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Default" Class="mt-2">Coming in Sprint 7</MudText>
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="40px" Class="mt-2" />
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    @* Action Buttons *@
+    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+        @if (_dashboard.ConfidenceScore < 65)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Href="/intelligence/contribute">
+                Contribute Data
+            </MudButton>
+        }
+        <MudLink Href="/intelligence/benchmark">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.BarChart">
+                View Benchmarks
+            </MudButton>
+        </MudLink>
+    </MudStack>
+}
+
+@code {
+    private DashboardResponse? _dashboard;
+    private ScoreResponse? _score;
+    private bool _loading = true;
+    private bool _error;
+
+    private double[] _dimensionValues = Array.Empty<double>();
+    private string[] _dimensionLabels = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        _loading = true;
+        _error = false;
+        StateHasChanged();
+
+        try
+        {
+            _dashboard = await IntelligenceService.GetDashboardAsync();
+            _score = await IntelligenceService.GetScoreAsync();
+
+            if (_score?.DimensionScores.Any() == true)
+            {
+                _dimensionLabels = _score.DimensionScores.Keys.ToArray();
+                _dimensionValues = _score.DimensionScores.Values.Select(v => (double)v).ToArray();
+            }
+
+            if (_dashboard is null) _error = true;
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatCurrency(decimal value)
+        => value >= 1_000_000 ? $"${value / 1_000_000:F1}M" : $"${value:N0}";
+
+    private static string FormatKpiValue(KpiItem kpi)
+    {
+        if (string.IsNullOrEmpty(kpi.Unit)) return kpi.Value;
+        return kpi.Unit switch
+        {
+            "USD" => $"${kpi.Value}",
+            "%" => $"{kpi.Value}%",
+            _ => $"{kpi.Value} {kpi.Unit}",
+        };
+    }
+
+    private static string GetTrendIcon(string trend) => trend switch
+    {
+        "Up" => Icons.Material.Filled.ArrowUpward,
+        "Down" => Icons.Material.Filled.ArrowDownward,
+        _ => Icons.Material.Filled.Remove,
+    };
+
+    private static Color GetTrendColor(string trend) => trend switch
+    {
+        "Up" => Color.Success,
+        "Down" => Color.Error,
+        _ => Color.Default,
+    };
+}
