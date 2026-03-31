@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Snapp.Service.Transaction.DTOs;
 using Snapp.Service.Transaction.Models;
 using Snapp.Service.Transaction.Repositories;
 using Snapp.Service.Transaction.Services;
 using Snapp.Shared.DTOs.Common;
 using Snapp.Shared.DTOs.Transaction;
 using Snapp.Shared.Interfaces;
+using CreateAttestationRequest = Snapp.Service.Transaction.DTOs.CreateAttestationRequest;
 
 namespace Snapp.Service.Transaction.Endpoints;
 
@@ -75,14 +75,10 @@ public static class ReputationEndpoints
 
         return Results.Ok(new ReputationHistoryResponse
         {
-            Snapshots = history.Select(r => new ReputationResponse
+            Points = history.Select(r => new ReputationHistoryPoint
             {
-                UserId = r.UserId,
+                Date = r.ComputedAt,
                 OverallScore = r.OverallScore,
-                ReferralScore = r.ReferralScore,
-                ContributionScore = r.ContributionScore,
-                AttestationScore = r.AttestationScore,
-                ComputedAt = r.ComputedAt,
             }).ToList(),
         });
     }
@@ -155,12 +151,13 @@ public static class ReputationEndpoints
         logger.LogInformation("Attestation created: {Attestor} -> {Target} for skill {Skill}{Flag}",
             userId, request.TargetUserId, request.Skill, antiGaming.Flagged ? " [FLAGGED]" : "");
 
-        return Results.Created("/api/tx/attestations", new AttestationResponse
+        return Results.Created("/api/tx/attestations", new Snapp.Shared.DTOs.Transaction.AttestationResponse
         {
-            TargetUserId = attestation.TargetUserId,
-            AttestorUserId = attestation.AttestorUserId,
-            Skill = attestation.Skill,
-            Comment = attestation.Comment,
+            AttestationId = $"{attestation.TargetUserId}#{attestation.AttestorUserId}",
+            FromUserId = attestation.AttestorUserId,
+            FromDisplayName = attestation.AttestorUserId,
+            ToUserId = attestation.TargetUserId,
+            Text = $"{attestation.Skill}: {attestation.Comment ?? ""}".TrimEnd(' ', ':'),
             CreatedAt = attestation.CreatedAt,
         });
     }

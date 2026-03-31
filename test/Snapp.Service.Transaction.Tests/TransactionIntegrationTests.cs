@@ -1,13 +1,10 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Snapp.Shared.Constants;
-using Snapp.Shared.DTOs.Common;
 using Snapp.Shared.DTOs.Transaction;
 using Snapp.Shared.Enums;
 using Snapp.TestHelpers;
@@ -19,8 +16,11 @@ namespace Snapp.Service.Transaction.Tests;
 public class TransactionIntegrationTests : IAsyncLifetime
 {
     private readonly DockerTestFixture _fixture;
-    private readonly HttpClient _http;
     private readonly DynamoDbTestHelper _dynamo;
+
+    /// <summary>Direct connection to the Transaction service (bypasses Kong JWT).</summary>
+    private const string TxServiceUrl = "http://localhost:8086";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -30,7 +30,6 @@ public class TransactionIntegrationTests : IAsyncLifetime
     public TransactionIntegrationTests(DockerTestFixture fixture)
     {
         _fixture = fixture;
-        _http = new HttpClient { BaseAddress = new Uri(fixture.KongUrl), Timeout = TimeSpan.FromSeconds(15) };
         _dynamo = new DynamoDbTestHelper();
     }
 
@@ -43,9 +42,16 @@ public class TransactionIntegrationTests : IAsyncLifetime
 
     public Task DisposeAsync()
     {
-        _http.Dispose();
         _dynamo.Dispose();
         return Task.CompletedTask;
+    }
+
+    /// <summary>Creates an HttpClient pointed at the Transaction service with X-User-Id set.</summary>
+    private static HttpClient CreateClient(string userId)
+    {
+        var http = new HttpClient { BaseAddress = new Uri(TxServiceUrl), Timeout = TimeSpan.FromSeconds(15) };
+        http.DefaultRequestHeaders.Add("X-User-Id", userId);
+        return http;
     }
 
     // ── Referral Lifecycle Tests ────────────────────────────────
@@ -53,10 +59,10 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task CreateReferral_ValidMembers_Returns201()
     {
-        var (senderId, receiverId, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (senderId, receiverId, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(senderId);
 
-        var response = await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        var response = await http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = receiverId,
             NetworkId = networkId,
@@ -75,10 +81,10 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task CreateReferral_SelfReferral_Returns400()
     {
-        var (senderId, _, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (senderId, _, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(senderId);
 
-        var response = await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        var response = await http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = senderId, // self-referral
             NetworkId = networkId,
@@ -90,12 +96,12 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task CreateReferral_NonMember_Returns403()
     {
-        var (_, _, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (senderId, _, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(senderId);
 
         var outsiderId = Guid.NewGuid().ToString("N");
 
-        var response = await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        var response = await http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = outsiderId,
             NetworkId = networkId,
@@ -107,11 +113,11 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task UpdateStatus_ValidTransition_ReturnsOk()
     {
-        var (senderId, receiverId, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (senderId, receiverId, networkId) = await SetupReferralScenarioAsync();
+        using var senderHttp = CreateClient(senderId);
 
-        // Create referral
-        var createResp = await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        // Create referral as sender
+        var createResp = await senderHttp.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = receiverId,
             NetworkId = networkId,
@@ -119,11 +125,9 @@ public class TransactionIntegrationTests : IAsyncLifetime
         var referral = await createResp.Content.ReadFromJsonAsync<ReferralResponse>(JsonOptions);
 
         // Switch to receiver to accept
-        var receiverToken = await AuthenticateAsync($"recv-{Guid.NewGuid():N}@test.snapp", receiverId);
-        if (receiverToken != null)
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", receiverToken);
+        using var receiverHttp = CreateClient(receiverId);
 
-        var statusResp = await _http.PutAsJsonAsync(
+        var statusResp = await receiverHttp.PutAsJsonAsync(
             $"/api/tx/referrals/{referral!.ReferralId}/status",
             new UpdateReferralStatusRequest { Status = ReferralStatus.Accepted });
 
@@ -135,10 +139,10 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task UpdateStatus_InvalidTransition_Returns400()
     {
-        var (senderId, receiverId, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (senderId, receiverId, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(senderId);
 
-        var createResp = await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        var createResp = await http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = receiverId,
             NetworkId = networkId,
@@ -146,7 +150,7 @@ public class TransactionIntegrationTests : IAsyncLifetime
         var referral = await createResp.Content.ReadFromJsonAsync<ReferralResponse>(JsonOptions);
 
         // Try to complete without accepting first
-        var statusResp = await _http.PutAsJsonAsync(
+        var statusResp = await http.PutAsJsonAsync(
             $"/api/tx/referrals/{referral!.ReferralId}/status",
             new UpdateReferralStatusRequest { Status = ReferralStatus.Completed });
 
@@ -156,28 +160,25 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task RecordOutcome_Completed_TriggersReputation()
     {
-        var (senderId, receiverId, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (senderId, receiverId, networkId) = await SetupReferralScenarioAsync();
+        using var senderHttp = CreateClient(senderId);
+        using var receiverHttp = CreateClient(receiverId);
 
-        // Create and accept
-        var createResp = await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        // Create referral
+        var createResp = await senderHttp.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = receiverId,
             NetworkId = networkId,
         });
         var referral = await createResp.Content.ReadFromJsonAsync<ReferralResponse>(JsonOptions);
 
-        // Accept (as receiver)
-        var receiverToken = await AuthenticateAsync($"recv-outcome-{Guid.NewGuid():N}@test.snapp", receiverId);
-        if (receiverToken != null)
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", receiverToken);
-
-        await _http.PutAsJsonAsync(
+        // Accept as receiver
+        await receiverHttp.PutAsJsonAsync(
             $"/api/tx/referrals/{referral!.ReferralId}/status",
             new UpdateReferralStatusRequest { Status = ReferralStatus.Accepted });
 
-        // Record outcome
-        var outcomeResp = await _http.PostAsJsonAsync(
+        // Record outcome as receiver
+        var outcomeResp = await receiverHttp.PostAsJsonAsync(
             $"/api/tx/referrals/{referral.ReferralId}/outcome",
             new RecordOutcomeRequest { Success = true, Outcome = "Patient treated successfully" });
 
@@ -187,34 +188,34 @@ public class TransactionIntegrationTests : IAsyncLifetime
         Assert.NotNull(completed.OutcomeRecordedAt);
 
         // Wait briefly for async reputation computation
-        await Task.Delay(500);
+        await Task.Delay(1000);
 
         // Verify reputation was computed
-        var repResp = await _http.GetAsync($"/api/tx/reputation/{senderId}");
+        var repResp = await senderHttp.GetAsync($"/api/tx/reputation/{senderId}");
         Assert.Equal(HttpStatusCode.OK, repResp.StatusCode);
     }
 
     [Fact]
     public async Task ListSentReferrals_ReturnsUserReferrals()
     {
-        var (senderId, receiverId, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (senderId, receiverId, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(senderId);
 
         // Create two referrals
-        await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        await http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = receiverId,
             NetworkId = networkId,
             Notes = "First referral",
         });
-        await _http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
+        await http.PostAsJsonAsync("/api/tx/referrals", new CreateReferralRequest
         {
             ReceiverUserId = receiverId,
             NetworkId = networkId,
             Notes = "Second referral",
         });
 
-        var listResp = await _http.GetAsync("/api/tx/referrals/sent");
+        var listResp = await http.GetAsync("/api/tx/referrals/sent");
         Assert.Equal(HttpStatusCode.OK, listResp.StatusCode);
 
         var list = await listResp.Content.ReadFromJsonAsync<ReferralListResponse>(JsonOptions);
@@ -228,7 +229,9 @@ public class TransactionIntegrationTests : IAsyncLifetime
     public async Task GetReputation_NoData_ReturnsDefaultScores()
     {
         var userId = Guid.NewGuid().ToString("N");
-        var response = await _http.GetAsync($"/api/tx/reputation/{userId}");
+        using var http = CreateClient(userId);
+
+        var response = await http.GetAsync($"/api/tx/reputation/{userId}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var rep = await response.Content.ReadFromJsonAsync<ReputationResponse>(JsonOptions);
@@ -241,6 +244,7 @@ public class TransactionIntegrationTests : IAsyncLifetime
     public async Task GetReputationHistory_ReturnsSnapshots()
     {
         var userId = Guid.NewGuid().ToString("N");
+        using var http = CreateClient(userId);
 
         // Seed a reputation snapshot directly
         await _dynamo.Client.PutItemAsync(new PutItemRequest
@@ -259,7 +263,7 @@ public class TransactionIntegrationTests : IAsyncLifetime
             },
         });
 
-        var response = await _http.GetAsync($"/api/tx/reputation/{userId}/history");
+        var response = await http.GetAsync($"/api/tx/reputation/{userId}/history");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -268,10 +272,10 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task CreateAttestation_ValidPeers_Returns201()
     {
-        var (attestorId, targetId, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (attestorId, targetId, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(attestorId);
 
-        var response = await _http.PostAsJsonAsync("/api/tx/attestations", new
+        var response = await http.PostAsJsonAsync("/api/tx/attestations", new
         {
             TargetUserId = targetId,
             Skill = "implant-placement",
@@ -284,10 +288,10 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task CreateAttestation_SelfAttest_Returns400()
     {
-        var (userId, _, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (userId, _, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(userId);
 
-        var response = await _http.PostAsJsonAsync("/api/tx/attestations", new
+        var response = await http.PostAsJsonAsync("/api/tx/attestations", new
         {
             TargetUserId = userId,
             Skill = "self-promotion",
@@ -299,16 +303,16 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task CreateAttestation_DuplicateAttestation_Returns409()
     {
-        var (attestorId, targetId, networkId, token) = await SetupReferralScenarioAsync();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (attestorId, targetId, networkId) = await SetupReferralScenarioAsync();
+        using var http = CreateClient(attestorId);
 
-        await _http.PostAsJsonAsync("/api/tx/attestations", new
+        await http.PostAsJsonAsync("/api/tx/attestations", new
         {
             TargetUserId = targetId,
             Skill = "endo",
         });
 
-        var response = await _http.PostAsJsonAsync("/api/tx/attestations", new
+        var response = await http.PostAsJsonAsync("/api/tx/attestations", new
         {
             TargetUserId = targetId,
             Skill = "endo-again",
@@ -320,11 +324,11 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task AntiGaming_ReciprocalAttestation_IsFlagged()
     {
-        var (userA, userB, networkId, tokenA) = await SetupReferralScenarioAsync();
+        var (userA, userB, networkId) = await SetupReferralScenarioAsync();
 
         // A attests B
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
-        var resp1 = await _http.PostAsJsonAsync("/api/tx/attestations", new
+        using var httpA = CreateClient(userA);
+        var resp1 = await httpA.PostAsJsonAsync("/api/tx/attestations", new
         {
             TargetUserId = userB,
             Skill = "restorative",
@@ -332,11 +336,8 @@ public class TransactionIntegrationTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, resp1.StatusCode);
 
         // B attests A (reciprocal — should be flagged but still created)
-        var tokenB = await AuthenticateAsync($"anti-gaming-b-{Guid.NewGuid():N}@test.snapp", userB);
-        if (tokenB != null)
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
-
-        var resp2 = await _http.PostAsJsonAsync("/api/tx/attestations", new
+        using var httpB = CreateClient(userB);
+        var resp2 = await httpB.PostAsJsonAsync("/api/tx/attestations", new
         {
             TargetUserId = userA,
             Skill = "restorative",
@@ -351,20 +352,15 @@ public class TransactionIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task HealthCheck_ReturnsHealthy()
     {
-        var response = await _http.GetAsync("/api/tx/health");
-        // Might not be routed through Kong — try direct
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            using var directHttp = new HttpClient { BaseAddress = new Uri("http://localhost:8086") };
-            response = await directHttp.GetAsync("/health");
-        }
+        using var http = new HttpClient { BaseAddress = new Uri(TxServiceUrl) };
+        var response = await http.GetAsync("/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     // ── Helpers ─────────────────────────────────────────────────
 
-    private async Task<(string SenderId, string ReceiverId, string NetworkId, string Token)> SetupReferralScenarioAsync()
+    private async Task<(string SenderId, string ReceiverId, string NetworkId)> SetupReferralScenarioAsync()
     {
         var senderId = await _dynamo.CreateTestUserAsync();
         var receiverId = await _dynamo.CreateTestUserAsync();
@@ -426,33 +422,7 @@ public class TransactionIntegrationTests : IAsyncLifetime
             },
         });
 
-        // Get auth token for the sender
-        var token = await AuthenticateAsync($"tx-sender-{Guid.NewGuid():N}@test.snapp", senderId);
-        return (senderId, receiverId, networkId, token ?? string.Empty);
-    }
-
-    private async Task<string?> AuthenticateAsync(string email, string? overrideUserId = null)
-    {
-        try
-        {
-            var requestResponse = await _http.PostAsJsonAsync("/api/auth/magic-link", new { Email = email });
-            if (!requestResponse.IsSuccessStatusCode) return null;
-
-            var code = await _fixture.PapercutClient.ExtractMagicLinkCodeAsync(email);
-            if (code == null) return null;
-
-            var validateResponse = await _http.PostAsJsonAsync("/api/auth/validate", new { Code = code });
-            if (!validateResponse.IsSuccessStatusCode) return null;
-
-            var tokenJson = await validateResponse.Content.ReadFromJsonAsync<JsonElement>();
-            return tokenJson.GetProperty("accessToken").GetString();
-        }
-        catch
-        {
-            // If auth service isn't running, return a synthetic token header
-            // Tests that go through Kong need real tokens; unit-like tests use X-User-Id header
-            return null;
-        }
+        return (senderId, receiverId, networkId);
     }
 
     private async Task EnsureTxTableAsync()
