@@ -1,0 +1,301 @@
+{
+  "vertical": "dental",
+  "displayName": "Dental Practice",
+  "baseConfidence": 40.0,
+  "maxConfidence": 95.0,
+  "dimensions": [
+    {
+      "name": "FinancialHealth",
+      "displayName": "Financial Health",
+      "weight": 0.25,
+      "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
+      "kpis": [
+        { "name": "AnnualRevenue", "displayName": "Annual Revenue", "unit": "USD", "category": "Revenue" },
+        { "name": "OverheadRatio", "displayName": "Overhead Ratio", "unit": "%", "category": "Revenue" },
+        { "name": "CollectionsRate", "displayName": "Collections Rate", "unit": "%", "category": "Revenue" },
+        { "name": "ProfitMargin", "displayName": "Profit Margin", "unit": "%", "category": "Revenue" },
+        { "name": "RevenuePerProvider", "displayName": "Revenue Per Provider", "unit": "USD", "category": "Revenue" }
+      ]
+    },
+    {
+      "name": "OwnerRisk",
+      "displayName": "Owner / Key-Person Risk",
+      "weight": 0.20,
+      "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
+      "kpis": [
+        { "name": "OwnerProductionPct", "displayName": "Owner Production %", "unit": "%", "category": "OwnerProduction" },
+        { "name": "ProviderCount", "displayName": "Provider Count", "unit": "count", "category": "StaffCount" },
+        { "name": "SuccessionPlanExists", "displayName": "Succession Plan", "unit": "bool", "category": "OwnerProduction" },
+        { "name": "KeyPersonDependency", "displayName": "Key-Person Dependency Score", "unit": "score", "category": "OwnerProduction" }
+      ]
+    },
+    {
+      "name": "Operations",
+      "displayName": "Operations",
+      "weight": 0.20,
+      "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
+      "kpis": [
+        { "name": "ChairUtilization", "displayName": "Chair Utilization", "unit": "%", "category": "Utilization" },
+        { "name": "HygieneDaysPerWeek", "displayName": "Hygiene Days / Week", "unit": "days", "category": "Utilization" },
+        { "name": "NewPatientsPerMonth", "displayName": "New Patients / Month", "unit": "count", "category": "ClientVolume" },
+        { "name": "StaffToProviderRatio", "displayName": "Staff to Provider Ratio", "unit": "ratio", "category": "StaffCount" },
+        { "name": "TreatmentAcceptanceRate", "displayName": "Treatment Acceptance Rate", "unit": "%", "category": "Utilization" }
+      ]
+    },
+    {
+      "name": "ClientBase",
+      "displayName": "Client Base",
+      "weight": 0.15,
+      "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
+      "kpis": [
+        { "name": "ActivePatientCount", "displayName": "Active Patients", "unit": "count", "category": "ClientVolume" },
+        { "name": "PatientRetentionRate", "displayName": "Patient Retention Rate", "unit": "%", "category": "ClientVolume" },
+        { "name": "OnlineRating", "displayName": "Online Rating", "unit": "stars", "category": "ClientVolume" },
+        { "name": "ReviewCount", "displayName": "Review Count", "unit": "count", "category": "ClientVolume" }
+      ]
+    },
+    {
+      "name": "RevenueDiversification",
+      "displayName": "Revenue Diversification",
+      "weight": 0.10,
+      "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
+      "kpis": [
+        { "name": "InsuranceMixPct", "displayName": "Insurance Mix %", "unit": "%", "category": "RevenueMix" },
+        { "name": "FeeForServicePct", "displayName": "Fee-for-Service %", "unit": "%", "category": "RevenueMix" },
+        { "name": "SpecialtyServicePct", "displayName": "Specialty Service Revenue %", "unit": "%", "category": "RevenueMix" },
+        { "name": "TopPayerConcentration", "displayName": "Top Payer Concentration", "unit": "%", "category": "RevenueMix" }
+      ]
+    },
+    {
+      "name": "MarketPosition",
+      "displayName": "Market Position",
+      "weight": 0.10,
+      "thresholds": { "strong": 75, "acceptable": 50, "weak": 25 },
+      "kpis": [
+        { "name": "PractitionerDensity", "displayName": "Dentists per 100K Pop", "unit": "ratio", "category": "RevenueMix" },
+        { "name": "CompetitorCount", "displayName": "Competitors in Area", "unit": "count", "category": "RevenueMix" },
+        { "name": "DsoPresence", "displayName": "DSO Presence", "unit": "bool", "category": "RevenueMix" },
+        { "name": "PopulationGrowthRate", "displayName": "Population Growth Rate", "unit": "%", "category": "RevenueMix" }
+      ]
+    }
+  ],
+  "contributionCategories": [
+    {
+      "category": "Revenue",
+      "dimension": "FinancialHealth",
+      "confidenceWeight": 0.15,
+      "displayName": "Revenue & Financial Data",
+      "fields": [
+        { "name": "annualRevenue", "label": "Annual Revenue", "type": "currency", "confidenceWeight": 0.05, "validation": { "min": 0, "max": 100000000, "required": true } },
+        { "name": "overheadRatio", "label": "Overhead Ratio (%)", "type": "percentage", "confidenceWeight": 0.03, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "collectionsRate", "label": "Collections Rate (%)", "type": "percentage", "confidenceWeight": 0.03, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "profitMargin", "label": "Profit Margin (%)", "type": "percentage", "confidenceWeight": 0.02, "validation": { "min": -100, "max": 100, "required": false } },
+        { "name": "revenuePerProvider", "label": "Revenue Per Provider", "type": "currency", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 10000000, "required": false } }
+      ]
+    },
+    {
+      "category": "StaffCount",
+      "dimension": "Operations",
+      "confidenceWeight": 0.10,
+      "displayName": "Staffing & Provider Data",
+      "fields": [
+        { "name": "totalProviders", "label": "Total Providers", "type": "integer", "confidenceWeight": 0.04, "validation": { "min": 1, "max": 500, "required": true } },
+        { "name": "hygienists", "label": "Hygienists", "type": "integer", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 200, "required": false } },
+        { "name": "assistants", "label": "Dental Assistants", "type": "integer", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 200, "required": false } },
+        { "name": "frontDesk", "label": "Front Desk Staff", "type": "integer", "confidenceWeight": 0.01, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "officeManagers", "label": "Office Managers", "type": "integer", "confidenceWeight": 0.01, "validation": { "min": 0, "max": 50, "required": false } }
+      ]
+    },
+    {
+      "category": "Utilization",
+      "dimension": "Operations",
+      "confidenceWeight": 0.12,
+      "displayName": "Utilization & Capacity Data",
+      "fields": [
+        { "name": "chairUtilization", "label": "Chair Utilization (%)", "type": "percentage", "confidenceWeight": 0.04, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "hygieneDaysPerWeek", "label": "Hygiene Days / Week", "type": "decimal", "confidenceWeight": 0.03, "validation": { "min": 0, "max": 7, "required": false } },
+        { "name": "operatories", "label": "Number of Operatories", "type": "integer", "confidenceWeight": 0.03, "validation": { "min": 1, "max": 100, "required": false } },
+        { "name": "treatmentAcceptanceRate", "label": "Treatment Acceptance Rate (%)", "type": "percentage", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 100, "required": false } }
+      ]
+    },
+    {
+      "category": "ClientVolume",
+      "dimension": "ClientBase",
+      "confidenceWeight": 0.10,
+      "displayName": "Patient Volume Data",
+      "fields": [
+        { "name": "activePatientCount", "label": "Active Patients", "type": "integer", "confidenceWeight": 0.04, "validation": { "min": 0, "max": 100000, "required": true } },
+        { "name": "newPatientsPerMonth", "label": "New Patients / Month", "type": "integer", "confidenceWeight": 0.03, "validation": { "min": 0, "max": 5000, "required": false } },
+        { "name": "patientRetentionRate", "label": "Patient Retention Rate (%)", "type": "percentage", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "onlineRating", "label": "Online Rating (stars)", "type": "decimal", "confidenceWeight": 0.01, "validation": { "min": 0, "max": 5, "required": false } }
+      ]
+    },
+    {
+      "category": "RevenueMix",
+      "dimension": "RevenueDiversification",
+      "confidenceWeight": 0.08,
+      "displayName": "Revenue Mix Data",
+      "fields": [
+        { "name": "insuranceMixPct", "label": "Insurance Revenue (%)", "type": "percentage", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "feeForServicePct", "label": "Fee-for-Service (%)", "type": "percentage", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "specialtyServicePct", "label": "Specialty Service Revenue (%)", "type": "percentage", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 100, "required": false } },
+        { "name": "topPayerConcentration", "label": "Top Payer Concentration (%)", "type": "percentage", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 100, "required": false } }
+      ]
+    },
+    {
+      "category": "OwnerProduction",
+      "dimension": "OwnerRisk",
+      "confidenceWeight": 0.12,
+      "displayName": "Owner Production & Risk Data",
+      "fields": [
+        { "name": "ownerProductionPct", "label": "Owner Production (%)", "type": "percentage", "confidenceWeight": 0.05, "validation": { "min": 0, "max": 100, "required": true } },
+        { "name": "successionPlanExists", "label": "Has Succession Plan", "type": "boolean", "confidenceWeight": 0.03, "validation": { "required": false } },
+        { "name": "ownerAge", "label": "Owner Age", "type": "integer", "confidenceWeight": 0.02, "validation": { "min": 20, "max": 100, "required": false } },
+        { "name": "yearsInPractice", "label": "Years in Practice", "type": "integer", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 60, "required": false } }
+      ]
+    },
+    {
+      "category": "EquipmentAge",
+      "dimension": "Operations",
+      "confidenceWeight": 0.05,
+      "displayName": "Equipment & Technology Data",
+      "fields": [
+        { "name": "avgEquipmentAge", "label": "Average Equipment Age (years)", "type": "decimal", "confidenceWeight": 0.02, "validation": { "min": 0, "max": 50, "required": false } },
+        { "name": "hasDigitalXray", "label": "Has Digital X-Ray", "type": "boolean", "confidenceWeight": 0.01, "validation": { "required": false } },
+        { "name": "hasCadCam", "label": "Has CAD/CAM", "type": "boolean", "confidenceWeight": 0.01, "validation": { "required": false } },
+        { "name": "hasCbct", "label": "Has CBCT Scanner", "type": "boolean", "confidenceWeight": 0.01, "validation": { "required": false } }
+      ]
+    },
+    {
+      "category": "FacilityType",
+      "dimension": "MarketPosition",
+      "confidenceWeight": 0.05,
+      "displayName": "Facility & Location Data",
+      "fields": [
+        { "name": "facilityType", "label": "Facility Type", "type": "select", "confidenceWeight": 0.02, "validation": { "required": true, "pattern": "^(standalone|strip_mall|medical_building|shared_suite)$" } },
+        { "name": "squareFootage", "label": "Square Footage", "type": "integer", "confidenceWeight": 0.01, "validation": { "min": 200, "max": 50000, "required": false } },
+        { "name": "ownedOrLeased", "label": "Owned or Leased", "type": "select", "confidenceWeight": 0.01, "validation": { "required": false, "pattern": "^(owned|leased)$" } },
+        { "name": "locationCount", "label": "Number of Locations", "type": "integer", "confidenceWeight": 0.01, "validation": { "min": 1, "max": 500, "required": false } }
+      ]
+    }
+  ],
+  "careerStageRules": [
+    {
+      "stage": "PreExit",
+      "displayName": "Pre-Exit",
+      "priority": 1,
+      "minTenureYears": 20,
+      "maxProviderCount": 2,
+      "maxCeHoursRecent": 10,
+      "entityTypes": ["solo", "partnership"],
+      "signals": ["declining_ce_hours", "reduced_patient_load", "succession_inquiry", "practice_valuation_request"],
+      "riskFlags": ["no_succession_plan", "single_provider_dependency", "declining_revenue_trend"]
+    },
+    {
+      "stage": "Mature",
+      "displayName": "Mature",
+      "priority": 2,
+      "minTenureYears": 10,
+      "minProviderCount": 1,
+      "entityTypes": [],
+      "signals": ["stable_revenue", "established_patient_base", "multiple_staff", "consistent_production"],
+      "riskFlags": ["stagnant_growth", "aging_equipment", "high_overhead"]
+    },
+    {
+      "stage": "Growth",
+      "displayName": "Growth",
+      "priority": 3,
+      "minTenureYears": 3,
+      "minProviderCount": 2,
+      "minLocationCount": 1,
+      "minProductionVolume": 500000,
+      "entityTypes": [],
+      "signals": ["adding_providers", "expanding_locations", "increasing_revenue", "hiring_specialists"],
+      "riskFlags": ["overextension", "cash_flow_strain", "management_capacity"]
+    },
+    {
+      "stage": "AcquisitionLaunch",
+      "displayName": "Acquisition / Launch",
+      "priority": 4,
+      "maxTenureYears": 5,
+      "requiresEntityFormation": true,
+      "minProductionVolume": 100000,
+      "entityTypes": ["solo", "group", "partnership"],
+      "signals": ["recent_entity_formation", "loan_activity", "first_practice_purchase", "buildout_permits"],
+      "riskFlags": ["high_debt_ratio", "no_patient_base", "unproven_market"]
+    },
+    {
+      "stage": "Associate",
+      "displayName": "Junior / Associate",
+      "priority": 5,
+      "requiresCoLocation": true,
+      "maxProviderCount": 1,
+      "entityTypes": [],
+      "signals": ["employed_provider", "no_ownership_stake", "building_skills", "mentorship_active"],
+      "riskFlags": ["limited_autonomy", "non_compete_restrictions"]
+    },
+    {
+      "stage": "TrainingEntry",
+      "displayName": "Training / Entry",
+      "priority": 6,
+      "maxTenureYears": 2,
+      "entityTypes": [],
+      "signals": ["recent_graduation", "residency_active", "licensure_pending", "student_debt"],
+      "riskFlags": ["no_clinical_experience", "high_student_debt"]
+    }
+  ],
+  "benchmarkMetrics": [
+    { "name": "medianRevenue", "displayName": "Median Annual Revenue", "unit": "USD", "geographicLevels": ["national", "state", "metro", "county", "zip"], "aggregationType": "median" },
+    { "name": "medianOverhead", "displayName": "Median Overhead Ratio", "unit": "%", "geographicLevels": ["national", "state", "metro"], "aggregationType": "median" },
+    { "name": "medianCollections", "displayName": "Median Collections Rate", "unit": "%", "geographicLevels": ["national", "state", "metro"], "aggregationType": "median" },
+    { "name": "medianNewPatients", "displayName": "Median New Patients/Month", "unit": "count", "geographicLevels": ["national", "state", "metro", "county"], "aggregationType": "median" },
+    { "name": "avgProviderCount", "displayName": "Average Provider Count", "unit": "count", "geographicLevels": ["national", "state", "metro"], "aggregationType": "mean" },
+    { "name": "medianChairUtil", "displayName": "Median Chair Utilization", "unit": "%", "geographicLevels": ["national", "state", "metro"], "aggregationType": "median" },
+    { "name": "medianPatientRetention", "displayName": "Median Patient Retention", "unit": "%", "geographicLevels": ["national", "state"], "aggregationType": "median" },
+    { "name": "practitionerDensity", "displayName": "Dentists per 100K Population", "unit": "ratio", "geographicLevels": ["national", "state", "metro", "county"], "aggregationType": "ratio" },
+    { "name": "medianRevenuePerProvider", "displayName": "Median Revenue Per Provider", "unit": "USD", "geographicLevels": ["national", "state", "metro"], "aggregationType": "median" },
+    { "name": "dsoMarketShare", "displayName": "DSO Market Share", "unit": "%", "geographicLevels": ["national", "state", "metro"], "aggregationType": "mean" },
+    { "name": "medianProfitMargin", "displayName": "Median Profit Margin", "unit": "%", "geographicLevels": ["national", "state"], "aggregationType": "median" },
+    { "name": "medianValuationMultiple", "displayName": "Median Valuation Multiple", "unit": "x", "geographicLevels": ["national", "state"], "aggregationType": "median" }
+  ],
+  "valuationDrivers": [
+    { "name": "revenueGrowth", "displayName": "Revenue Growth Trend", "impactWeight": 0.18, "category": "financial" },
+    { "name": "profitability", "displayName": "Profitability / Margins", "impactWeight": 0.16, "category": "financial" },
+    { "name": "patientBase", "displayName": "Active Patient Base Size", "impactWeight": 0.14, "category": "client" },
+    { "name": "ownerDependency", "displayName": "Owner Dependency (inverse)", "impactWeight": -0.12, "category": "risk" },
+    { "name": "staffStability", "displayName": "Staff Retention & Stability", "impactWeight": 0.08, "category": "operations" },
+    { "name": "equipmentCondition", "displayName": "Equipment Condition & Age", "impactWeight": 0.06, "category": "operations" },
+    { "name": "locationDesirability", "displayName": "Location & Market Desirability", "impactWeight": 0.10, "category": "market" },
+    { "name": "payerMix", "displayName": "Payer Mix Quality", "impactWeight": 0.06, "category": "financial" },
+    { "name": "facilityCondition", "displayName": "Facility Condition & Lease Terms", "impactWeight": 0.05, "category": "operations" },
+    { "name": "competitiveLandscape", "displayName": "Competitive Landscape", "impactWeight": 0.05, "category": "market" }
+  ],
+  "registrySource": {
+    "type": "NPI_NPPES",
+    "displayName": "NPI/NPPES National Provider Registry",
+    "taxonomyCodes": [
+      "122300000X",
+      "1223D0001X",
+      "1223E0200X",
+      "1223G0001X",
+      "1223P0106X",
+      "1223P0221X",
+      "1223P0300X",
+      "1223P0700X",
+      "1223S0112X",
+      "1223X0008X",
+      "1223X0400X",
+      "124Q00000X"
+    ],
+    "endpointUrl": "https://npiregistry.cms.hhs.gov/api/"
+  },
+  "roleDefinitions": [
+    { "role": "dentist_owner", "displayName": "Dentist (Owner)", "description": "Licensed dentist who owns or co-owns the practice", "isProvider": true, "isRequired": true },
+    { "role": "dentist_associate", "displayName": "Associate Dentist", "description": "Licensed dentist employed by the practice", "isProvider": true, "isRequired": false },
+    { "role": "hygienist", "displayName": "Dental Hygienist", "description": "Licensed hygienist performing cleanings, exams, and preventive care", "isProvider": true, "isRequired": false },
+    { "role": "assistant", "displayName": "Dental Assistant", "description": "Chairside assistant supporting clinical procedures", "isProvider": false, "isRequired": false },
+    { "role": "front_desk", "displayName": "Front Desk / Receptionist", "description": "Scheduling, check-in, phone, and patient communication", "isProvider": false, "isRequired": false },
+    { "role": "office_manager", "displayName": "Office Manager", "description": "Practice operations, billing oversight, HR, and compliance", "isProvider": false, "isRequired": false },
+    { "role": "specialist", "displayName": "Specialist", "description": "Endodontist, orthodontist, oral surgeon, or other specialist on staff", "isProvider": true, "isRequired": false }
+  ]
+}

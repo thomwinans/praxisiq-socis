@@ -1,5 +1,8 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Snapp.Shared.Configuration;
 
 namespace Snapp.Shared.Hosting;
 
@@ -43,6 +46,34 @@ public static class ServiceCollectionExtensions
     {
         // Implementation provided by the auth library (M1.2).
         // Reads "Auth:Issuer", "Auth:Audience", "Auth:SigningKey"
+        return services;
+    }
+
+    /// <summary>
+    /// Loads a vertical configuration JSON file and registers it as a singleton VerticalConfig.
+    /// The file is expected at the given path (e.g., Config/verticals/dental.json).
+    /// Validates all DataAnnotation attributes on the deserialized model.
+    /// </summary>
+    public static IServiceCollection AddSnappVerticalConfig(this IServiceCollection services, string jsonFilePath)
+    {
+        var json = File.ReadAllText(jsonFilePath);
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        var config = JsonSerializer.Deserialize<VerticalConfig>(json, options)
+            ?? throw new InvalidOperationException($"Failed to deserialize vertical config from {jsonFilePath}");
+
+        var validationResults = new List<ValidationResult>();
+        var context = new ValidationContext(config);
+        if (!Validator.TryValidateObject(config, context, validationResults, validateAllProperties: true))
+        {
+            var errors = string.Join("; ", validationResults.Select(r => r.ErrorMessage));
+            throw new InvalidOperationException($"Vertical config validation failed: {errors}");
+        }
+
+        services.AddSingleton(config);
         return services;
     }
 
