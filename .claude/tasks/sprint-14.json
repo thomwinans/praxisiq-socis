@@ -3,12 +3,20 @@
   "description": "Enrichment Extended — State licensing, job posting intelligence, guild compensation benchmarks",
   "tasks": [
     {
-      "id": "S14-001",
-      "title": "State Licensing and Job Posting Enrichment",
+      "id": "S14-001a",
+      "title": "State Licensing Enrichment",
       "agent": "bex",
       "depends_on": [],
-      "prompt": "Extend the Enrichment Service with M7.6 (State Licensing) and M7.7 (Job Posting Intelligence).\n\n1. State Licensing loader:\n   - Create fixture data simulating state dental board records (license number, status, issue date, credential type) for 50 providers\n   - Fuzzy match to NPI registry records (name + city matching)\n   - Store as SIGNAL# items with confidence scores\n   - Feed career stage classifier with license issue dates\n\n2. Job Posting loader:\n   - Create fixture data simulating Indeed/specialty board job postings for 20 practices (role, posting date, duration, urgency language, compensation signals)\n   - Extract: posting frequency, role repetition (same role posted 3x = chronic turnover signal), urgency language\n   - Store as SIGNAL# items\n   - Feed workforce pressure scoring\n\nBoth loaders follow the fixture/API pattern from Sprint 8 (IDataProvider interface, fixture implementation for dev).\n\nIntegration tests: load fixtures, verify signals stored, verify career stage and workforce scoring incorporate new signals.",
-      "done_when": "State licensing and job posting fixtures loaded. Signals feed intelligence layer. Tests pass."
+      "prompt": "Extend the Enrichment Service with State Licensing data (M7.6).\n\n1. Create fixture data simulating state dental board records (license number, status, issue date, credential type) for 50 providers in src/Snapp.Service.Enrichment/Fixtures/licensing/\n2. Implement a StateLicensingLoader that:\n   - Reads fixture JSON\n   - Fuzzy matches to NPI registry records (name + city matching) using the IDataProvider pattern from Sprint 8\n   - Stores as SIGNAL# items in snapp-intel with confidence scores (exact name+city match = 0.9, partial = 0.6)\n3. Feed career stage classifier with license issue dates (update STAGE# computation to incorporate license tenure)\n4. Integration tests: load fixtures, verify SIGNAL# items created, verify confidence scores, verify career stage incorporates license data.",
+      "done_when": "State licensing fixtures loaded. Signals stored with confidence scores. Career stage uses license data. Tests pass."
+    },
+    {
+      "id": "S14-001b",
+      "title": "Job Posting Intelligence Enrichment",
+      "agent": "bex",
+      "depends_on": [],
+      "prompt": "Extend the Enrichment Service with Job Posting Intelligence (M7.7).\n\n1. Create fixture data simulating Indeed/specialty board job postings for 20 practices in src/Snapp.Service.Enrichment/Fixtures/jobpostings/ (role, posting date, duration, urgency language, compensation signals)\n2. Implement a JobPostingLoader that:\n   - Reads fixture JSON\n   - Extracts signals: posting frequency, role repetition (same role posted 3x in 2 years = chronic turnover signal), urgency language detection\n   - Stores as SIGNAL# items in snapp-intel\n   - Uses the IDataProvider pattern from Sprint 8\n3. Feed workforce pressure scoring in the intelligence service (update scoring engine to incorporate job posting signals)\n4. Integration tests: load fixtures, verify SIGNAL# items created, verify turnover signal detection, verify workforce scoring incorporates new signals.",
+      "done_when": "Job posting fixtures loaded. Turnover and urgency signals detected. Workforce scoring uses job posting data. Tests pass."
     },
     {
       "id": "S14-002",
@@ -22,7 +30,7 @@
       "id": "S14-003",
       "title": "Sprint 14 integration validation",
       "agent": "quinn",
-      "depends_on": ["S14-001", "S14-002"],
+      "depends_on": ["S14-001a", "S14-001b", "S14-002"],
       "prompt": "Validate Sprint 14. Run all tests. Verify enriched intelligence includes licensing and job posting signals. Verify compensation benchmarks display. Write .claude/reports/sprint-14-validation.md.",
       "done_when": "All tests pass. Extended enrichment and compensation benchmarks work. Validation report written."
     }
