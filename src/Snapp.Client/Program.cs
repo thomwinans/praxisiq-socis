@@ -6,6 +6,7 @@ using Snapp.Client;
 using Snapp.Client.Handlers;
 using Snapp.Client.Services;
 using Snapp.Client.State;
+using Snapp.Sdk.Extensions;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -27,8 +28,20 @@ builder.Services.AddHttpClient("SnappApi", client =>
     client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
 }).AddHttpMessageHandler<BearerTokenHandler>();
 
+builder.Services.AddHttpClient("SnappSdk");
+
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("SnappApi"));
+
+// Kiota SDK
+builder.Services.AddSnappSdkScoped((sp, options) =>
+{
+    options.BaseUrl = apiBaseUrl.TrimEnd('/').Replace("/api", "");
+    var authState = sp.GetRequiredService<SnappAuthStateProvider>();
+    options.TokenProvider = async () => await authState.GetAccessTokenAsync() ?? string.Empty;
+});
+
+builder.Services.AddScoped<SnappSdkWrapper>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();

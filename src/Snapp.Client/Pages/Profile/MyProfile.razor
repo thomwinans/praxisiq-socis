@@ -1,6 +1,6 @@
 @page "/profile"
 @attribute [Authorize]
-@inject IUserService UserService
+@inject SnappSdkWrapper SdkWrapper
 @inject IReputationService ReputationService
 @inject NavigationManager Navigation
 
@@ -105,14 +105,20 @@ else if (_profile is not null)
         _loading = true;
         _error = null;
 
+        // TODO: migrate remaining pages to SDK
         try
         {
-            _profile = await UserService.GetMyProfileAsync();
+            _profile = await SdkWrapper.GetMyProfileAsync();
             if (_profile is not null)
             {
                 try { _reputation = await ReputationService.GetReputationAsync(_profile.UserId); }
                 catch { /* Reputation is optional — don't block profile load */ }
             }
+        }
+        catch (SnappApiException ex) when (ex.IsAuthError)
+        {
+            Navigation.NavigateTo("/auth/login", forceLoad: true);
+            return;
         }
         catch
         {

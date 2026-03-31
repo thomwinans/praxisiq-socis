@@ -14,11 +14,11 @@ namespace Snapp.Client.Tests.Pages.Profile;
 
 public class MyProfileTests : TestContext
 {
-    private readonly FakeUserService _userService = new();
+    private readonly FakeSdkWrapper _sdkWrapper = new();
 
     public MyProfileTests()
     {
-        Services.AddSingleton<IUserService>(_userService);
+        Services.AddSingleton<SnappSdkWrapper>(_sdkWrapper);
         Services.AddSingleton<IReputationService>(new MockReputationService());
         Services.AddSingleton<ILinkedInService>(new MockLinkedInService());
         Services.AddSingleton<IAuthService>(new FakeAuthService());
@@ -33,7 +33,7 @@ public class MyProfileTests : TestContext
     [Fact]
     public void MyProfile_ShowsProfileData()
     {
-        _userService.ProfileResult = new ProfileResponse
+        _sdkWrapper.ProfileResult = new ProfileResponse
         {
             UserId = "user-1",
             DisplayName = "Dr. Smith",
@@ -55,7 +55,7 @@ public class MyProfileTests : TestContext
     [Fact]
     public void MyProfile_ShowsEditButton()
     {
-        _userService.ProfileResult = new ProfileResponse
+        _sdkWrapper.ProfileResult = new ProfileResponse
         {
             UserId = "user-1",
             DisplayName = "Dr. Smith",
@@ -74,7 +74,7 @@ public class MyProfileTests : TestContext
     [Fact]
     public void MyProfile_ShowsCompletenessBar()
     {
-        _userService.ProfileResult = new ProfileResponse
+        _sdkWrapper.ProfileResult = new ProfileResponse
         {
             UserId = "user-1",
             DisplayName = "Dr. Smith",
@@ -93,7 +93,7 @@ public class MyProfileTests : TestContext
     [Fact]
     public void MyProfile_ShowsCompletenessHint_WhenNotComplete()
     {
-        _userService.ProfileResult = new ProfileResponse
+        _sdkWrapper.ProfileResult = new ProfileResponse
         {
             UserId = "user-1",
             DisplayName = "Dr. Smith",
@@ -113,7 +113,7 @@ public class MyProfileTests : TestContext
     [Fact]
     public void MyProfile_ShowsError_OnApiFailure()
     {
-        _userService.ThrowOnGet = true;
+        _sdkWrapper.ThrowOnGet = true;
 
         var cut = RenderComponent<MyProfile>();
 
@@ -124,21 +124,20 @@ public class MyProfileTests : TestContext
         });
     }
 
-    private class FakeUserService : IUserService
+    private class FakeSdkWrapper : SnappSdkWrapper
     {
         public ProfileResponse ProfileResult { get; set; } = new() { UserId = "user-1", DisplayName = "Test" };
         public bool ThrowOnGet { get; set; }
 
-        public Task<ProfileResponse> GetMyProfileAsync()
+        public FakeSdkWrapper() : base(null!, null!, null!) { }
+
+        public override Task<ProfileResponse> GetMyProfileAsync()
         {
-            if (ThrowOnGet) throw new HttpRequestException("Failed");
+            if (ThrowOnGet) throw new SnappApiException("Failed");
             return Task.FromResult(ProfileResult);
         }
 
-        public Task<ProfileResponse> GetProfileAsync(string userId) => Task.FromResult(ProfileResult);
-        public Task<ProfileResponse> UpdateProfileAsync(UpdateProfileRequest request) => Task.FromResult(ProfileResult);
-        public Task<ProfileResponse> OnboardAsync(OnboardingRequest request) => Task.FromResult(ProfileResult);
-        public Task<PiiResponse> GetMyPiiAsync() => Task.FromResult(new PiiResponse());
+        public override Task<ProfileResponse> GetProfileAsync(string userId) => Task.FromResult(ProfileResult);
     }
 
     private class FakeAuthService : IAuthService

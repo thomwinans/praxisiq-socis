@@ -56,4 +56,36 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Registers SnappApiClient as a scoped service, allowing the configure delegate
+    /// to resolve scoped services (e.g. auth state) via the service provider.
+    /// </summary>
+    public static IServiceCollection AddSnappSdkScoped(
+        this IServiceCollection services,
+        Action<IServiceProvider, SnappSdkOptions> configure)
+    {
+        services.AddScoped(sp =>
+        {
+            var options = new SnappSdkOptions();
+            configure(sp, options);
+
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("SnappSdk");
+            httpClient.BaseAddress = new Uri(options.BaseUrl);
+
+            BearerTokenProvider authProvider = options.TokenProvider is not null
+                ? new BearerTokenProvider(options.TokenProvider)
+                : new BearerTokenProvider(options.AccessToken ?? throw new InvalidOperationException(
+                    "SnappSdkOptions requires either TokenProvider or AccessToken to be set."));
+
+            var adapter = new HttpClientRequestAdapter(authProvider, httpClient: httpClient)
+            {
+                BaseUrl = options.BaseUrl
+            };
+            return new SnappApiClient(adapter);
+        });
+
+        return services;
+    }
 }
