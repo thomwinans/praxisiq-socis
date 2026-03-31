@@ -104,7 +104,11 @@
       "Bash(find .claude -name report* -o -name vera*)",
       "Bash(grep -v \"^$\")",
       "Bash(ls .claude/logs/vera_*)",
-      "Bash(ls .claude/logs/orchestrator_*)"
+      "Bash(ls .claude/logs/orchestrator_*)",
+      "Bash(ls .claude/logs/S14-001_*.log)",
+      "Bash(ls .claude/logs/S14-003_*.log)",
+      "Bash(find src:*)",
+      "Bash(find . -name openapi* -o -name snapp-api*)"
     ],
     "deny": []
   }
