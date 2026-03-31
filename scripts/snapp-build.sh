@@ -284,9 +284,10 @@ REPORT_EOF
     echo "## Log Files" >> "$REPORT_FILE"
     echo "" >> "$REPORT_FILE"
     echo "- Orchestrator: \`${LOG_DIR}/orchestrator_${TIMESTAMP}.log\`" >> "$REPORT_FILE"
-    ls "${LOG_DIR}"/S1-*_${TIMESTAMP}.log 2>/dev/null | while read -r f; do
+    for f in "${LOG_DIR}"/*_${TIMESTAMP}.log; do
+        [[ -f "$f" ]] || continue
         echo "- $(basename "$f"): \`$f\`" >> "$REPORT_FILE"
-    done >> "$REPORT_FILE" 2>/dev/null
+    done
 
     log "Report written to: $REPORT_FILE"
 }
