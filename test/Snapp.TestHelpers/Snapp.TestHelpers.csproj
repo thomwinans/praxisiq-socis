@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
     <RootNamespace>Snapp.TestHelpers</RootNamespace>
   </PropertyGroup>
 
