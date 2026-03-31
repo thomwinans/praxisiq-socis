@@ -294,6 +294,37 @@ services:
     profiles:
       - digest
 
+  snapp-linkedin:
+    build:
+      context: ../../../
+      dockerfile: src/Snapp.Service.LinkedIn/Dockerfile
+    container_name: snapp-linkedin
+    ports:
+      - "8088:8080"
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AWS_ACCESS_KEY_ID: fakeAccessKey
+      AWS_SECRET_ACCESS_KEY: fakeSecretKey
+      AWS_DEFAULT_REGION: us-east-1
+      DynamoDB__ServiceURL: http://dynamodb-local:8000
+      Encryption__KeyFilePath: /keys/dev-master.key
+      LinkedIn__ClientId: mock-client-id
+      LinkedIn__ClientSecret: mock-client-secret
+      LinkedIn__RedirectUri: http://localhost:5000/linkedin/callback
+    volumes:
+      - ./keys:/keys:ro
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   snapp-enrichment:
     build:
       context: ../../../

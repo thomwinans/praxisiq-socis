@@ -7,10 +7,12 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Snapp.Service.LinkedIn/Snapp.Service.LinkedIn.csproj" />
+    <ProjectReference Include="../../src/Snapp.Shared/Snapp.Shared.csproj" />
     <ProjectReference Include="../Snapp.TestHelpers/Snapp.TestHelpers.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FluentAssertions" Version="6.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
     <PackageReference Include="xunit" Version="2.*" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
