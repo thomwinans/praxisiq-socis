@@ -1,0 +1,1433 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SNAPP API",
+    "description": "Social Networking Application for PraxisIQ — unified API",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development (Kong)"
+    },
+    {
+      "url": "https://api.snapp.praxisiq.com",
+      "description": "Production"
+    }
+  ],
+  "security": [{ "BearerJwt": [] }],
+  "paths": {
+    "/api/auth/magic-link": {
+      "post": {
+        "operationId": "RequestMagicLink",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MagicLinkRequest" } } } },
+        "responses": {
+          "200": { "description": "Magic link sent", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } },
+          "429": { "description": "Rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/auth/validate": {
+      "post": {
+        "operationId": "ValidateMagicLink",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MagicLinkValidateRequest" } } } },
+        "responses": {
+          "200": { "description": "Token issued", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenResponse" } } } },
+          "401": { "description": "Invalid code", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "operationId": "RefreshToken",
+        "tags": ["Authentication"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshRequest" } } } },
+        "responses": {
+          "200": { "description": "Token refreshed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenResponse" } } } },
+          "401": { "description": "Invalid refresh token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "Logout",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": { "description": "Logged out", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "operationId": "GetMyProfile",
+        "tags": ["Users"],
+        "responses": {
+          "200": { "description": "Current user profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "put": {
+        "operationId": "UpdateMyProfile",
+        "tags": ["Users"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateProfileRequest" } } } },
+        "responses": {
+          "200": { "description": "Profile updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/users/me/onboard": {
+      "post": {
+        "operationId": "OnboardUser",
+        "tags": ["Users"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OnboardingRequest" } } } },
+        "responses": {
+          "200": { "description": "User onboarded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileResponse" } } } },
+          "409": { "description": "Already onboarded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/users/me/pii": {
+      "get": {
+        "operationId": "GetMyPii",
+        "tags": ["Users"],
+        "responses": {
+          "200": { "description": "PII data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PiiResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/users/search": {
+      "get": {
+        "operationId": "SearchUsers",
+        "tags": ["Users"],
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Search results", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ProfileResponse" } } } } }
+        }
+      }
+    },
+    "/api/users/{userId}": {
+      "get": {
+        "operationId": "GetUserProfile",
+        "tags": ["Users"],
+        "parameters": [{ "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "User profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileResponse" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/networks": {
+      "post": {
+        "operationId": "CreateNetwork",
+        "tags": ["Networks"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateNetworkRequest" } } } },
+        "responses": {
+          "201": { "description": "Network created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NetworkResponse" } } } }
+        }
+      },
+      "get": {
+        "operationId": "ListNetworks",
+        "tags": ["Networks"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Network list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NetworkListResponse" } } } }
+        }
+      }
+    },
+    "/api/networks/mine": {
+      "get": {
+        "operationId": "ListMyNetworks",
+        "tags": ["Networks"],
+        "responses": {
+          "200": { "description": "My networks", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NetworkListResponse" } } } }
+        }
+      }
+    },
+    "/api/networks/{netId}": {
+      "get": {
+        "operationId": "GetNetwork",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Network details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NetworkResponse" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "put": {
+        "operationId": "UpdateNetwork",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateNetworkRequest" } } } },
+        "responses": {
+          "200": { "description": "Network updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NetworkResponse" } } } }
+        }
+      }
+    },
+    "/api/networks/{netId}/members": {
+      "get": {
+        "operationId": "ListMembers",
+        "tags": ["Networks"],
+        "parameters": [
+          { "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Member list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MemberListResponse" } } } }
+        }
+      }
+    },
+    "/api/networks/{netId}/settings": {
+      "get": {
+        "operationId": "GetNetworkSettings",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Network settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NetworkSettingsResponse" } } } }
+        }
+      }
+    },
+    "/api/networks/{netId}/apply": {
+      "post": {
+        "operationId": "ApplyToNetwork",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApplyRequest" } } } },
+        "responses": {
+          "200": { "description": "Application submitted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApplicationResponse" } } } },
+          "409": { "description": "Already applied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/networks/{netId}/applications": {
+      "get": {
+        "operationId": "ListApplications",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Application list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ApplicationResponse" } } } } }
+        }
+      }
+    },
+    "/api/networks/{netId}/applications/{userId}/decide": {
+      "post": {
+        "operationId": "DecideApplication",
+        "tags": ["Networks"],
+        "parameters": [
+          { "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApplicationDecisionRequest" } } } },
+        "responses": {
+          "200": { "description": "Decision recorded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/networks/{netId}/invite": {
+      "post": {
+        "operationId": "InviteMember",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "email": { "type": "string", "format": "email" }, "role": { "type": "string" } }, "required": ["email"] } } } },
+        "responses": {
+          "200": { "description": "Invitation sent", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/content/networks/{netId}/posts": {
+      "post": {
+        "operationId": "CreatePost",
+        "tags": ["Content"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePostRequest" } } } },
+        "responses": {
+          "201": { "description": "Post created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PostResponse" } } } }
+        }
+      }
+    },
+    "/api/content/networks/{netId}/feed": {
+      "get": {
+        "operationId": "ListNetworkFeed",
+        "tags": ["Content"],
+        "parameters": [
+          { "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Feed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeedResponse" } } } }
+        }
+      }
+    },
+    "/api/content/users/{userId}/posts": {
+      "get": {
+        "operationId": "ListUserPosts",
+        "tags": ["Content"],
+        "parameters": [
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User posts", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeedResponse" } } } }
+        }
+      }
+    },
+    "/api/content/posts/{postId}/react": {
+      "post": {
+        "operationId": "ReactToPost",
+        "tags": ["Content"],
+        "parameters": [{ "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "reaction": { "type": "string" } }, "required": ["reaction"] } } } },
+        "responses": {
+          "200": { "description": "Reaction added", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      },
+      "delete": {
+        "operationId": "RemoveReaction",
+        "tags": ["Content"],
+        "parameters": [{ "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Reaction removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/content/networks/{netId}/threads": {
+      "post": {
+        "operationId": "CreateThread",
+        "tags": ["Content"],
+        "parameters": [{ "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateThreadRequest" } } } },
+        "responses": {
+          "201": { "description": "Thread created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ThreadResponse" } } } }
+        }
+      },
+      "get": {
+        "operationId": "ListThreads",
+        "tags": ["Content"],
+        "parameters": [
+          { "name": "netId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Thread list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ThreadListResponse" } } } }
+        }
+      }
+    },
+    "/api/content/threads/{threadId}": {
+      "get": {
+        "operationId": "GetThread",
+        "tags": ["Content"],
+        "parameters": [{ "name": "threadId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Thread details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ThreadResponse" } } } }
+        }
+      }
+    },
+    "/api/content/threads/{threadId}/replies": {
+      "post": {
+        "operationId": "CreateReply",
+        "tags": ["Content"],
+        "parameters": [{ "name": "threadId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReplyRequest" } } } },
+        "responses": {
+          "201": { "description": "Reply created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReplyResponse" } } } }
+        }
+      },
+      "get": {
+        "operationId": "ListReplies",
+        "tags": ["Content"],
+        "parameters": [
+          { "name": "threadId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Reply list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReplyListResponse" } } } }
+        }
+      }
+    },
+    "/api/content/threads/{threadId}/replies/{replyId}": {
+      "delete": {
+        "operationId": "DeleteReply",
+        "tags": ["Content"],
+        "parameters": [
+          { "name": "threadId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "replyId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Reply deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/score/compute": {
+      "post": {
+        "operationId": "ComputeScore",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Score computed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DashboardResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/score": {
+      "get": {
+        "operationId": "GetCurrentScore",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Current score", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DashboardResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/score/history": {
+      "get": {
+        "operationId": "GetScoreHistory",
+        "tags": ["Intelligence"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 30 } }
+        ],
+        "responses": {
+          "200": { "description": "Score history", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DashboardResponse" } } } } }
+        }
+      }
+    },
+    "/api/intel/benchmarks": {
+      "get": {
+        "operationId": "GetBenchmarks",
+        "tags": ["Intelligence"],
+        "parameters": [
+          { "name": "specialty", "in": "query", "schema": { "type": "string" } },
+          { "name": "geography", "in": "query", "schema": { "type": "string" } },
+          { "name": "sizeBand", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Benchmarks", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BenchmarkResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/dashboard": {
+      "get": {
+        "operationId": "GetDashboard",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Dashboard data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DashboardResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/career-stage/compute": {
+      "post": {
+        "operationId": "ComputeCareerStage",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Career stage computed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/career-stage": {
+      "get": {
+        "operationId": "GetCurrentCareerStage",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Current career stage", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/career-stage/history": {
+      "get": {
+        "operationId": "GetCareerStageHistory",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Career stage history", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/MessageResponse" } } } } }
+        }
+      }
+    },
+    "/api/intel/valuation": {
+      "get": {
+        "operationId": "GetCurrentValuation",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Current valuation", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValuationResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/valuation/compute": {
+      "post": {
+        "operationId": "ComputeValuation",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Valuation computed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValuationResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/valuation/scenario": {
+      "post": {
+        "operationId": "ComputeValuationScenario",
+        "tags": ["Intelligence"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitDataRequest" } } } },
+        "responses": {
+          "200": { "description": "Scenario result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValuationResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/compensation/contribute": {
+      "post": {
+        "operationId": "ContributeCompensation",
+        "tags": ["Intelligence"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitDataRequest" } } } },
+        "responses": {
+          "200": { "description": "Contribution recorded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/compensation/benchmarks": {
+      "get": {
+        "operationId": "GetCompensationBenchmarks",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Compensation benchmarks", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BenchmarkResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/questions": {
+      "get": {
+        "operationId": "GetPendingQuestions",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Pending questions", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DigestQuestionItem" } } } } }
+        }
+      }
+    },
+    "/api/intel/questions/{questionId}/answer": {
+      "post": {
+        "operationId": "AnswerQuestion",
+        "tags": ["Intelligence"],
+        "parameters": [{ "name": "questionId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "answer": { "type": "string" } }, "required": ["answer"] } } } },
+        "responses": {
+          "200": { "description": "Answer recorded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/questions/progression": {
+      "get": {
+        "operationId": "GetQuestionProgression",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Question progression", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/contribute": {
+      "post": {
+        "operationId": "SubmitDataContribution",
+        "tags": ["Intelligence"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitDataRequest" } } } },
+        "responses": {
+          "200": { "description": "Data contributed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/contributions": {
+      "get": {
+        "operationId": "ListContributions",
+        "tags": ["Intelligence"],
+        "responses": {
+          "200": { "description": "Contributions list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/SubmitDataRequest" } } } } }
+        }
+      }
+    },
+    "/api/intel/market/{geoId}": {
+      "get": {
+        "operationId": "GetMarketProfile",
+        "tags": ["Intelligence"],
+        "parameters": [{ "name": "geoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Market profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BenchmarkResponse" } } } }
+        }
+      }
+    },
+    "/api/intel/market/compare": {
+      "get": {
+        "operationId": "CompareMarkets",
+        "tags": ["Intelligence"],
+        "parameters": [
+          { "name": "geoIds", "in": "query", "schema": { "type": "array", "items": { "type": "string" } } }
+        ],
+        "responses": {
+          "200": { "description": "Market comparison", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/BenchmarkResponse" } } } } }
+        }
+      }
+    },
+    "/api/tx/deals": {
+      "post": {
+        "operationId": "CreateDealRoom",
+        "tags": ["Transactions"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateDealRoomRequest" } } } },
+        "responses": {
+          "201": { "description": "Deal room created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DealRoomResponse" } } } }
+        }
+      },
+      "get": {
+        "operationId": "ListDealRooms",
+        "tags": ["Transactions"],
+        "responses": {
+          "200": { "description": "Deal room list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DealRoomListResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/deals/{dealId}": {
+      "get": {
+        "operationId": "GetDealRoom",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "dealId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Deal room details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DealRoomResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/deals/{dealId}/participants": {
+      "post": {
+        "operationId": "AddDealParticipant",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "dealId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AddParticipantRequest" } } } },
+        "responses": {
+          "200": { "description": "Participant added", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DealParticipantResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/deals/{dealId}/participants/{userId}": {
+      "delete": {
+        "operationId": "RemoveDealParticipant",
+        "tags": ["Transactions"],
+        "parameters": [
+          { "name": "dealId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Participant removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/deals/{dealId}/documents": {
+      "post": {
+        "operationId": "GenerateDocumentUploadUrl",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "dealId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "filename": { "type": "string" }, "contentType": { "type": "string" } }, "required": ["filename"] } } } },
+        "responses": {
+          "200": { "description": "Upload URL", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresignedUrlResponse" } } } }
+        }
+      },
+      "get": {
+        "operationId": "ListDealDocuments",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "dealId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Document list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DealDocumentResponse" } } } } }
+        }
+      }
+    },
+    "/api/tx/deals/{dealId}/documents/{docId}/url": {
+      "get": {
+        "operationId": "GetDocumentDownloadUrl",
+        "tags": ["Transactions"],
+        "parameters": [
+          { "name": "dealId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "docId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Download URL", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresignedUrlResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/deals/{dealId}/audit": {
+      "get": {
+        "operationId": "GetDealAuditTrail",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "dealId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Audit trail", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DealAuditEntryResponse" } } } } }
+        }
+      }
+    },
+    "/api/tx/referrals": {
+      "post": {
+        "operationId": "CreateReferral",
+        "tags": ["Transactions"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReferralRequest" } } } },
+        "responses": {
+          "201": { "description": "Referral created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReferralResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/referrals/sent": {
+      "get": {
+        "operationId": "ListSentReferrals",
+        "tags": ["Transactions"],
+        "responses": {
+          "200": { "description": "Sent referrals", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReferralListResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/referrals/received": {
+      "get": {
+        "operationId": "ListReceivedReferrals",
+        "tags": ["Transactions"],
+        "responses": {
+          "200": { "description": "Received referrals", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReferralListResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/referrals/{refId}/status": {
+      "put": {
+        "operationId": "UpdateReferralStatus",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "refId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateReferralStatusRequest" } } } },
+        "responses": {
+          "200": { "description": "Status updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReferralResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/referrals/{refId}/outcome": {
+      "post": {
+        "operationId": "RecordReferralOutcome",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "refId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecordOutcomeRequest" } } } },
+        "responses": {
+          "200": { "description": "Outcome recorded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReferralResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/attestations": {
+      "post": {
+        "operationId": "CreateAttestation",
+        "tags": ["Transactions"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "toUserId": { "type": "string" }, "text": { "type": "string" } }, "required": ["toUserId", "text"] } } } },
+        "responses": {
+          "201": { "description": "Attestation created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AttestationResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/reputation/{userId}": {
+      "get": {
+        "operationId": "GetReputation",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Reputation score", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReputationResponse" } } } }
+        }
+      }
+    },
+    "/api/tx/reputation/{userId}/history": {
+      "get": {
+        "operationId": "GetHistory",
+        "tags": ["Transactions"],
+        "parameters": [{ "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Reputation history", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReputationHistoryResponse" } } } }
+        }
+      }
+    },
+    "/api/notif": {
+      "get": {
+        "operationId": "ListNotifications",
+        "tags": ["Notifications"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "nextToken", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Notification list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationListResponse" } } } }
+        }
+      }
+    },
+    "/api/notif/{notifId}/read": {
+      "post": {
+        "operationId": "MarkNotificationRead",
+        "tags": ["Notifications"],
+        "parameters": [{ "name": "notifId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Marked read", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/notif/read-all": {
+      "post": {
+        "operationId": "MarkAllNotificationsRead",
+        "tags": ["Notifications"],
+        "responses": {
+          "200": { "description": "All marked read", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/notif/preferences": {
+      "get": {
+        "operationId": "GetNotificationPreferences",
+        "tags": ["Notifications"],
+        "responses": {
+          "200": { "description": "Preferences", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdatePreferencesRequest" } } } }
+        }
+      },
+      "put": {
+        "operationId": "SaveNotificationPreferences",
+        "tags": ["Notifications"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdatePreferencesRequest" } } } },
+        "responses": {
+          "200": { "description": "Preferences saved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/linkedin/auth-url": {
+      "get": {
+        "operationId": "GetLinkedInAuthUrl",
+        "tags": ["LinkedIn"],
+        "responses": {
+          "200": { "description": "Auth URL", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LinkedInAuthUrlResponse" } } } }
+        }
+      }
+    },
+    "/api/linkedin/callback": {
+      "post": {
+        "operationId": "LinkedInCallback",
+        "tags": ["LinkedIn"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LinkedInCallbackRequest" } } } },
+        "responses": {
+          "200": { "description": "LinkedIn linked", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LinkedInProfileResponse" } } } }
+        }
+      }
+    },
+    "/api/linkedin/status": {
+      "get": {
+        "operationId": "GetLinkedInStatus",
+        "tags": ["LinkedIn"],
+        "responses": {
+          "200": { "description": "Link status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LinkedInStatusResponse" } } } }
+        }
+      }
+    },
+    "/api/linkedin/unlink": {
+      "post": {
+        "operationId": "UnlinkLinkedIn",
+        "tags": ["LinkedIn"],
+        "responses": {
+          "200": { "description": "Unlinked", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } }
+        }
+      }
+    },
+    "/api/linkedin/share": {
+      "post": {
+        "operationId": "ShareToLinkedIn",
+        "tags": ["LinkedIn"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LinkedInShareRequest" } } } },
+        "responses": {
+          "200": { "description": "Shared", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LinkedInShareResponse" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerJwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "RS256 JWT issued by snapp-auth via magic link flow"
+      }
+    },
+    "schemas": {
+      "MagicLinkRequest": {
+        "type": "object",
+        "required": ["email"],
+        "properties": { "email": { "type": "string", "format": "email" } }
+      },
+      "MagicLinkValidateRequest": {
+        "type": "object",
+        "required": ["code"],
+        "properties": { "code": { "type": "string", "minLength": 32, "maxLength": 128 } }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": { "type": "string" },
+          "refreshToken": { "type": "string" },
+          "expiresIn": { "type": "integer" },
+          "isNewUser": { "type": "boolean" }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": { "refreshToken": { "type": "string" } }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "$ref": "#/components/schemas/ErrorDetail" }
+        }
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "traceId": { "type": "string" }
+        }
+      },
+      "ProfileResponse": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "specialty": { "type": "string", "nullable": true },
+          "geography": { "type": "string", "nullable": true },
+          "linkedInProfileUrl": { "type": "string", "nullable": true },
+          "photoUrl": { "type": "string", "nullable": true },
+          "hasPracticeData": { "type": "boolean" },
+          "profileCompleteness": { "type": "number" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OnboardingRequest": {
+        "type": "object",
+        "required": ["displayName", "email"],
+        "properties": {
+          "displayName": { "type": "string", "maxLength": 100 },
+          "specialty": { "type": "string", "maxLength": 100 },
+          "geography": { "type": "string", "maxLength": 200 },
+          "email": { "type": "string", "format": "email", "maxLength": 254 },
+          "phone": { "type": "string", "maxLength": 20 },
+          "linkedInProfileUrl": { "type": "string", "format": "uri", "maxLength": 500 }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": { "type": "string", "maxLength": 100 },
+          "specialty": { "type": "string", "maxLength": 100 },
+          "geography": { "type": "string", "maxLength": 200 },
+          "photoUrl": { "type": "string", "format": "uri", "maxLength": 500 }
+        }
+      },
+      "PiiResponse": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "phone": { "type": "string", "nullable": true },
+          "contactInfo": { "type": "string", "nullable": true }
+        }
+      },
+      "NetworkResponse": {
+        "type": "object",
+        "properties": {
+          "networkId": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "charter": { "type": "string", "nullable": true },
+          "memberCount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "userRole": { "type": "string", "nullable": true }
+        }
+      },
+      "NetworkListResponse": {
+        "type": "object",
+        "properties": {
+          "networks": { "type": "array", "items": { "$ref": "#/components/schemas/NetworkResponse" } },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "CreateNetworkRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 100 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "charter": { "type": "string", "maxLength": 10000 },
+          "template": { "type": "string", "maxLength": 100 }
+        }
+      },
+      "UpdateNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "maxLength": 100 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "charter": { "type": "string", "maxLength": 10000 }
+        }
+      },
+      "ApplyRequest": {
+        "type": "object",
+        "required": ["networkId"],
+        "properties": {
+          "networkId": { "type": "string" },
+          "applicationText": { "type": "string", "maxLength": 1000 }
+        }
+      },
+      "ApplicationDecisionRequest": {
+        "type": "object",
+        "required": ["userId", "decision"],
+        "properties": {
+          "userId": { "type": "string" },
+          "decision": { "type": "string", "enum": ["Approved", "Denied"] },
+          "reason": { "type": "string", "maxLength": 1000 }
+        }
+      },
+      "ApplicationResponse": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "displayName": { "type": "string", "nullable": true },
+          "applicationText": { "type": "string", "nullable": true },
+          "status": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "MemberResponse": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "role": { "type": "string" },
+          "joinedAt": { "type": "string", "format": "date-time" },
+          "contributionScore": { "type": "number" }
+        }
+      },
+      "MemberListResponse": {
+        "type": "object",
+        "properties": {
+          "members": { "type": "array", "items": { "$ref": "#/components/schemas/MemberResponse" } },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "NetworkSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "network": { "$ref": "#/components/schemas/NetworkResponse" },
+          "roles": { "type": "array", "items": { "$ref": "#/components/schemas/RoleResponse" } },
+          "pendingApplicationCount": { "type": "integer" }
+        }
+      },
+      "RoleResponse": {
+        "type": "object",
+        "properties": {
+          "roleName": { "type": "string" },
+          "permissions": { "type": "integer" },
+          "description": { "type": "string", "nullable": true }
+        }
+      },
+      "CreatePostRequest": {
+        "type": "object",
+        "required": ["networkId", "content"],
+        "properties": {
+          "networkId": { "type": "string" },
+          "content": { "type": "string", "maxLength": 5000 },
+          "postType": { "type": "string", "enum": ["Discussion", "Question", "Milestone", "Insight"] }
+        }
+      },
+      "PostResponse": {
+        "type": "object",
+        "properties": {
+          "postId": { "type": "string" },
+          "networkId": { "type": "string" },
+          "authorUserId": { "type": "string" },
+          "authorDisplayName": { "type": "string" },
+          "content": { "type": "string" },
+          "postType": { "type": "string" },
+          "reactionCounts": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "FeedResponse": {
+        "type": "object",
+        "properties": {
+          "posts": { "type": "array", "items": { "$ref": "#/components/schemas/PostResponse" } },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "CreateThreadRequest": {
+        "type": "object",
+        "required": ["networkId", "title", "content"],
+        "properties": {
+          "networkId": { "type": "string" },
+          "title": { "type": "string", "maxLength": 200 },
+          "content": { "type": "string", "maxLength": 10000 }
+        }
+      },
+      "ThreadResponse": {
+        "type": "object",
+        "properties": {
+          "threadId": { "type": "string" },
+          "networkId": { "type": "string" },
+          "title": { "type": "string" },
+          "authorUserId": { "type": "string" },
+          "authorDisplayName": { "type": "string" },
+          "replyCount": { "type": "integer" },
+          "lastReplyAt": { "type": "string", "format": "date-time", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ThreadListResponse": {
+        "type": "object",
+        "properties": {
+          "threads": { "type": "array", "items": { "$ref": "#/components/schemas/ThreadResponse" } },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "CreateReplyRequest": {
+        "type": "object",
+        "required": ["threadId", "content"],
+        "properties": {
+          "threadId": { "type": "string" },
+          "content": { "type": "string", "maxLength": 5000 }
+        }
+      },
+      "ReplyResponse": {
+        "type": "object",
+        "properties": {
+          "replyId": { "type": "string" },
+          "threadId": { "type": "string" },
+          "authorUserId": { "type": "string" },
+          "authorDisplayName": { "type": "string" },
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ReplyListResponse": {
+        "type": "object",
+        "properties": {
+          "replies": { "type": "array", "items": { "$ref": "#/components/schemas/ReplyResponse" } },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "DashboardResponse": {
+        "type": "object",
+        "properties": {
+          "kpIs": { "type": "array", "items": { "$ref": "#/components/schemas/KpiItem" } },
+          "confidenceScore": { "type": "number" },
+          "valuationSummary": { "$ref": "#/components/schemas/ValuationSummary" }
+        }
+      },
+      "KpiItem": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "value": { "type": "string" },
+          "unit": { "type": "string", "nullable": true },
+          "trend": { "type": "string" },
+          "percentile": { "type": "number", "nullable": true }
+        }
+      },
+      "ValuationSummary": {
+        "type": "object",
+        "properties": {
+          "downside": { "type": "number" },
+          "base": { "type": "number" },
+          "upside": { "type": "number" },
+          "confidenceScore": { "type": "number" }
+        }
+      },
+      "BenchmarkResponse": {
+        "type": "object",
+        "properties": {
+          "metrics": { "type": "array", "items": { "$ref": "#/components/schemas/BenchmarkMetric" } },
+          "cohortSize": { "type": "integer" }
+        }
+      },
+      "BenchmarkMetric": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "p25": { "type": "number" },
+          "p50": { "type": "number" },
+          "p75": { "type": "number" },
+          "userValue": { "type": "number", "nullable": true },
+          "userPercentile": { "type": "number", "nullable": true }
+        }
+      },
+      "ValuationResponse": {
+        "type": "object",
+        "properties": {
+          "downside": { "type": "number" },
+          "base": { "type": "number" },
+          "upside": { "type": "number" },
+          "confidenceScore": { "type": "number" },
+          "drivers": { "type": "array", "items": { "$ref": "#/components/schemas/ValuationDriver" } },
+          "history": { "type": "array", "items": { "$ref": "#/components/schemas/ValuationSnapshot" } }
+        }
+      },
+      "ValuationDriver": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "impact": { "type": "string" },
+          "direction": { "type": "string" }
+        }
+      },
+      "ValuationSnapshot": {
+        "type": "object",
+        "properties": {
+          "date": { "type": "string", "format": "date-time" },
+          "base": { "type": "number" },
+          "confidenceScore": { "type": "number" }
+        }
+      },
+      "SubmitDataRequest": {
+        "type": "object",
+        "required": ["category"],
+        "properties": {
+          "category": { "type": "string", "maxLength": 100 },
+          "dataPoints": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "DigestQuestionItem": {
+        "type": "object",
+        "properties": {
+          "questionId": { "type": "string" },
+          "promptText": { "type": "string" },
+          "choices": { "type": "array", "items": { "type": "string" } },
+          "answerUrl": { "type": "string" }
+        }
+      },
+      "CreateDealRoomRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "name": { "type": "string", "maxLength": 200 } }
+      },
+      "DealRoomResponse": {
+        "type": "object",
+        "properties": {
+          "dealId": { "type": "string" },
+          "name": { "type": "string" },
+          "createdByUserId": { "type": "string" },
+          "status": { "type": "string", "enum": ["Active", "Closed", "Cancelled"] },
+          "participantCount": { "type": "integer" },
+          "documentCount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DealRoomListResponse": {
+        "type": "object",
+        "properties": {
+          "dealRooms": { "type": "array", "items": { "$ref": "#/components/schemas/DealRoomResponse" } },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "AddParticipantRequest": {
+        "type": "object",
+        "required": ["userId", "role"],
+        "properties": {
+          "userId": { "type": "string" },
+          "role": { "type": "string", "enum": ["seller", "buyer", "advisor"] }
+        }
+      },
+      "DealParticipantResponse": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "role": { "type": "string" },
+          "addedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DealDocumentResponse": {
+        "type": "object",
+        "properties": {
+          "documentId": { "type": "string" },
+          "filename": { "type": "string" },
+          "uploadedByUserId": { "type": "string" },
+          "uploadedByDisplayName": { "type": "string" },
+          "size": { "type": "integer", "format": "int64" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DealAuditEntryResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": { "type": "string" },
+          "action": { "type": "string" },
+          "actorUserId": { "type": "string" },
+          "actorDisplayName": { "type": "string" },
+          "details": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PresignedUrlResponse": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "expiresIn": { "type": "integer" }
+        }
+      },
+      "CreateReferralRequest": {
+        "type": "object",
+        "required": ["receiverUserId", "networkId"],
+        "properties": {
+          "receiverUserId": { "type": "string" },
+          "networkId": { "type": "string" },
+          "specialty": { "type": "string", "maxLength": 100 },
+          "notes": { "type": "string", "maxLength": 1000 }
+        }
+      },
+      "ReferralResponse": {
+        "type": "object",
+        "properties": {
+          "referralId": { "type": "string" },
+          "senderUserId": { "type": "string" },
+          "receiverUserId": { "type": "string" },
+          "senderDisplayName": { "type": "string" },
+          "receiverDisplayName": { "type": "string" },
+          "networkId": { "type": "string" },
+          "specialty": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["Pending", "Accepted", "Declined", "Completed"] },
+          "notes": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "outcomeRecordedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "ReferralListResponse": {
+        "type": "object",
+        "properties": {
+          "referrals": { "type": "array", "items": { "$ref": "#/components/schemas/ReferralResponse" } },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "UpdateReferralStatusRequest": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string", "enum": ["Pending", "Accepted", "Declined", "Completed"] }
+        }
+      },
+      "RecordOutcomeRequest": {
+        "type": "object",
+        "required": ["outcome", "success"],
+        "properties": {
+          "outcome": { "type": "string", "maxLength": 2000 },
+          "success": { "type": "boolean" }
+        }
+      },
+      "ReputationResponse": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "overallScore": { "type": "number" },
+          "referralScore": { "type": "number" },
+          "contributionScore": { "type": "number" },
+          "attestationScore": { "type": "number" },
+          "computedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ReputationHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "points": { "type": "array", "items": { "$ref": "#/components/schemas/ReputationHistoryPoint" } }
+        }
+      },
+      "ReputationHistoryPoint": {
+        "type": "object",
+        "properties": {
+          "date": { "type": "string", "format": "date-time" },
+          "overallScore": { "type": "number" }
+        }
+      },
+      "AttestationResponse": {
+        "type": "object",
+        "properties": {
+          "attestationId": { "type": "string" },
+          "fromUserId": { "type": "string" },
+          "fromDisplayName": { "type": "string" },
+          "toUserId": { "type": "string" },
+          "text": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NotificationResponse": {
+        "type": "object",
+        "properties": {
+          "notificationId": { "type": "string" },
+          "type": { "type": "string" },
+          "category": { "type": "string", "nullable": true },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "isRead": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NotificationListResponse": {
+        "type": "object",
+        "properties": {
+          "notifications": { "type": "array", "items": { "$ref": "#/components/schemas/NotificationResponse" } },
+          "unreadCount": { "type": "integer" },
+          "nextToken": { "type": "string", "nullable": true }
+        }
+      },
+      "UpdatePreferencesRequest": {
+        "type": "object",
+        "properties": {
+          "digestTime": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+          "timezone": { "type": "string", "maxLength": 50 },
+          "immediateTypes": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "LinkedInCallbackRequest": {
+        "type": "object",
+        "required": ["code", "state"],
+        "properties": {
+          "code": { "type": "string" },
+          "state": { "type": "string" }
+        }
+      },
+      "LinkedInAuthUrlResponse": {
+        "type": "object",
+        "properties": { "authorizationUrl": { "type": "string" } }
+      },
+      "LinkedInProfileResponse": {
+        "type": "object",
+        "properties": {
+          "linkedInName": { "type": "string" },
+          "linkedInHeadline": { "type": "string", "nullable": true },
+          "photoUrl": { "type": "string", "nullable": true }
+        }
+      },
+      "LinkedInStatusResponse": {
+        "type": "object",
+        "properties": {
+          "isLinked": { "type": "boolean" },
+          "linkedInName": { "type": "string", "nullable": true },
+          "tokenExpiry": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "LinkedInShareRequest": {
+        "type": "object",
+        "required": ["content", "networkId", "sourceType"],
+        "properties": {
+          "content": { "type": "string", "maxLength": 3000 },
+          "networkId": { "type": "string" },
+          "sourceType": { "type": "string", "enum": ["post", "milestone"] }
+        }
+      },
+      "LinkedInShareResponse": {
+        "type": "object",
+        "properties": { "linkedInPostUrl": { "type": "string" } }
+      }
+    }
+  }
+}
