@@ -12,9 +12,16 @@ public class FakeIntelligenceService : IIntelligenceService
     public MessageResponse? ContributeResult { get; set; }
     public VerticalConfigResponse? ConfigResult { get; set; }
     public BenchmarkResponse? BenchmarkResult { get; set; }
+    public ValuationResponse? ValuationResult { get; set; }
+    public ValuationResponse? ScenarioResult { get; set; }
+    public CareerStageResponse? CareerStageResult { get; set; }
+    public MarketProfileResponse? MarketProfileResult { get; set; }
+    public MarketCompareResponse? MarketCompareResult { get; set; }
     public bool ThrowOnDashboard { get; set; }
     public bool ThrowOnContribute { get; set; }
     public bool ThrowOnBenchmarks { get; set; }
+    public bool ThrowOnValuation { get; set; }
+    public bool ThrowOnMarket { get; set; }
 
     public Task<DashboardResponse?> GetDashboardAsync()
     {
@@ -42,4 +49,25 @@ public class FakeIntelligenceService : IIntelligenceService
         if (ThrowOnBenchmarks) throw new HttpRequestException("Failed");
         return Task.FromResult(BenchmarkResult);
     }
+
+    public Task<ValuationResponse?> GetValuationAsync()
+    {
+        if (ThrowOnValuation) throw new HttpRequestException("Failed");
+        return Task.FromResult(ValuationResult);
+    }
+
+    public Task<ValuationResponse?> ComputeScenarioAsync(Dictionary<string, string> overrides)
+        => Task.FromResult(ScenarioResult);
+
+    public Task<CareerStageResponse?> GetCareerStageAsync()
+        => Task.FromResult(CareerStageResult);
+
+    public Task<MarketProfileResponse?> GetMarketProfileAsync(string geoId)
+    {
+        if (ThrowOnMarket) throw new HttpRequestException("Failed");
+        return Task.FromResult(MarketProfileResult);
+    }
+
+    public Task<MarketCompareResponse?> CompareMarketsAsync(string[] geoIds)
+        => Task.FromResult(MarketCompareResult);
 }

@@ -11,6 +11,11 @@ public interface IIntelligenceService
     Task<MessageResponse?> ContributeDataAsync(SubmitDataRequest request);
     Task<VerticalConfigResponse?> GetVerticalConfigAsync();
     Task<BenchmarkResponse?> GetBenchmarksAsync(string specialty, string geography, string sizeBand);
+    Task<ValuationResponse?> GetValuationAsync();
+    Task<ValuationResponse?> ComputeScenarioAsync(Dictionary<string, string> overrides);
+    Task<CareerStageResponse?> GetCareerStageAsync();
+    Task<MarketProfileResponse?> GetMarketProfileAsync(string geoId);
+    Task<MarketCompareResponse?> CompareMarketsAsync(string[] geoIds);
 }
 
 public class ScoreResponse
@@ -66,4 +71,54 @@ public class ContributionCategoryConfig
     public string Dimension { get; set; } = string.Empty;
     public decimal ConfidenceWeight { get; set; }
     public string DisplayName { get; set; } = string.Empty;
+}
+
+public class CareerStageResponse
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Stage { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string ConfidenceLevel { get; set; } = "low";
+    public List<RiskFlagResponse> RiskFlags { get; set; } = new();
+    public List<string> TriggerSignals { get; set; } = new();
+    public DateTime ComputedAt { get; set; }
+}
+
+public class RiskFlagResponse
+{
+    public string Type { get; set; } = string.Empty;
+    public string Severity { get; set; } = "medium";
+    public string Description { get; set; } = string.Empty;
+}
+
+public class MarketProfileResponse
+{
+    public string GeoId { get; set; } = string.Empty;
+    public string GeoName { get; set; } = string.Empty;
+    public decimal PractitionerDensity { get; set; }
+    public int CompetitorCount { get; set; }
+    public decimal ConsolidationPressure { get; set; }
+    public List<DemographicTrend> DemographicTrends { get; set; } = new();
+    public List<WorkforceIndicator> WorkforceIndicators { get; set; } = new();
+    public DateTime ComputedAt { get; set; }
+}
+
+public class DemographicTrend
+{
+    public string Name { get; set; } = string.Empty;
+    public decimal Value { get; set; }
+    public string Unit { get; set; } = string.Empty;
+    public string Direction { get; set; } = string.Empty;
+}
+
+public class WorkforceIndicator
+{
+    public string Name { get; set; } = string.Empty;
+    public decimal Value { get; set; }
+    public string Unit { get; set; } = string.Empty;
+}
+
+public class MarketCompareResponse
+{
+    public List<MarketProfileResponse> Markets { get; set; } = new();
 }

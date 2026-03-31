@@ -137,24 +137,56 @@ else if (_dashboard is not null)
             </MudCard>
         </MudItem>
 
-        @* Career Stage (placeholder) *@
+        @* Career Stage *@
         <MudItem xs="12" md="4">
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Career Stage</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Default" Class="mt-2">Coming in Sprint 7</MudText>
-                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="40px" Class="mt-2" />
+                    @if (_careerStage is not null)
+                    {
+                        <MudText Typo="Typo.h6" Class="mt-2">@_careerStage.DisplayName</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="@GetConfidenceLevelColor(_careerStage.ConfidenceLevel)" Class="mt-1">
+                            @_careerStage.ConfidenceLevel confidence
+                        </MudChip>
+                        @if (_careerStage.RiskFlags.Any(r => r.Severity == "high"))
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                @(_careerStage.RiskFlags.Count(r => r.Severity == "high")) high-severity risk flag(s)
+                            </MudAlert>
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default" Class="mt-2">
+                            No career stage classification yet.
+                        </MudText>
+                    }
                 </MudCardContent>
             </MudCard>
         </MudItem>
 
-        @* Risk Flags (placeholder) *@
+        @* Risk Flags *@
         <MudItem xs="12" md="4">
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Risk Flags</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Default" Class="mt-2">Coming in Sprint 7</MudText>
-                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="40px" Class="mt-2" />
+                    @if (_careerStage?.RiskFlags.Any() == true)
+                    {
+                        <MudList T="RiskFlagResponse" Dense="true" Class="mt-2">
+                            @foreach (var flag in _careerStage.RiskFlags)
+                            {
+                                <MudListItem T="RiskFlagResponse" Icon="@GetRiskIcon(flag.Severity)" IconColor="@GetRiskColor(flag.Severity)">
+                                    @flag.Description
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Success" Class="mt-2">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" /> No active risk flags
+                        </MudText>
+                    }
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -182,6 +214,7 @@ else if (_dashboard is not null)
 @code {
     private DashboardResponse? _dashboard;
     private ScoreResponse? _score;
+    private CareerStageResponse? _careerStage;
     private bool _loading = true;
     private bool _error;
 
@@ -203,6 +236,9 @@ else if (_dashboard is not null)
         {
             _dashboard = await IntelligenceService.GetDashboardAsync();
             _score = await IntelligenceService.GetScoreAsync();
+
+            // Career stage may not exist yet — that's okay
+            try { _careerStage = await IntelligenceService.GetCareerStageAsync(); } catch { }
 
             if (_score?.DimensionScores.Any() == true)
             {
@@ -249,5 +285,26 @@ else if (_dashboard is not null)
         "Up" => Color.Success,
         "Down" => Color.Error,
         _ => Color.Default,
+    };
+
+    private static Color GetConfidenceLevelColor(string level) => level switch
+    {
+        "high" => Color.Success,
+        "medium" => Color.Warning,
+        _ => Color.Error,
+    };
+
+    private static string GetRiskIcon(string severity) => severity switch
+    {
+        "high" => Icons.Material.Filled.Error,
+        "medium" => Icons.Material.Filled.Warning,
+        _ => Icons.Material.Filled.Info,
+    };
+
+    private static Color GetRiskColor(string severity) => severity switch
+    {
+        "high" => Color.Error,
+        "medium" => Color.Warning,
+        _ => Color.Info,
     };
 }

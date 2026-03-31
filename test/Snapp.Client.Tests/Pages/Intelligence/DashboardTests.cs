@@ -158,7 +158,7 @@ public class DashboardTests : TestContext
     }
 
     [Fact]
-    public void Dashboard_ShowsPlaceholderCards()
+    public void Dashboard_NoCareerStage_ShowsFallbackText()
     {
         _service.DashboardResult = new DashboardResponse
         {
@@ -171,8 +171,63 @@ public class DashboardTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Career Stage", cut.Markup);
-            Assert.Contains("Risk Flags", cut.Markup);
-            Assert.Contains("Coming in Sprint 7", cut.Markup);
+            Assert.Contains("No career stage classification yet", cut.Markup);
+            Assert.Contains("No active risk flags", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Dashboard_WithCareerStage_ShowsStageAndConfidence()
+    {
+        _service.DashboardResult = new DashboardResponse
+        {
+            ConfidenceScore = 70,
+            KPIs = new(),
+        };
+        _service.CareerStageResult = new CareerStageResponse
+        {
+            Stage = "growth",
+            DisplayName = "Growth Phase",
+            ConfidenceLevel = "high",
+            RiskFlags = new(),
+        };
+
+        var cut = RenderComponent<Dashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Growth Phase", cut.Markup);
+            Assert.Contains("high confidence", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Dashboard_WithRiskFlags_ShowsFlags()
+    {
+        _service.DashboardResult = new DashboardResponse
+        {
+            ConfidenceScore = 70,
+            KPIs = new(),
+        };
+        _service.CareerStageResult = new CareerStageResponse
+        {
+            Stage = "mature",
+            DisplayName = "Mature Practice",
+            ConfidenceLevel = "medium",
+            RiskFlags = new List<RiskFlagResponse>
+            {
+                new() { Type = "key_person", Severity = "high", Description = "High owner production dependency" },
+                new() { Type = "succession", Severity = "medium", Description = "No succession plan in place" },
+            },
+        };
+
+        var cut = RenderComponent<Dashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("High owner production dependency", cut.Markup);
+            Assert.Contains("No succession plan in place", cut.Markup);
+            Assert.Contains("1 high-severity risk flag(s)", cut.Markup);
         });
     }
 

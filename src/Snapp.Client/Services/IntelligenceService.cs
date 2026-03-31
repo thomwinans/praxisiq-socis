@@ -46,6 +46,42 @@ public class IntelligenceService : IIntelligenceService
         return await response.Content.ReadFromJsonAsync<BenchmarkResponse>();
     }
 
+    public async Task<ValuationResponse?> GetValuationAsync()
+    {
+        var response = await _http.GetAsync("intel/valuation");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<ValuationResponse>();
+    }
+
+    public async Task<ValuationResponse?> ComputeScenarioAsync(Dictionary<string, string> overrides)
+    {
+        var response = await _http.PostAsJsonAsync("intel/valuation/scenario", new { Overrides = overrides });
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<ValuationResponse>();
+    }
+
+    public async Task<CareerStageResponse?> GetCareerStageAsync()
+    {
+        var response = await _http.GetAsync("intel/career-stage");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<CareerStageResponse>();
+    }
+
+    public async Task<MarketProfileResponse?> GetMarketProfileAsync(string geoId)
+    {
+        var response = await _http.GetAsync($"intel/market/{Uri.EscapeDataString(geoId)}");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<MarketProfileResponse>();
+    }
+
+    public async Task<MarketCompareResponse?> CompareMarketsAsync(string[] geoIds)
+    {
+        var geos = string.Join(",", geoIds.Select(Uri.EscapeDataString));
+        var response = await _http.GetAsync($"intel/market/compare?geos={geos}");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<MarketCompareResponse>();
+    }
+
     public async Task<VerticalConfigResponse?> GetVerticalConfigAsync()
     {
         // The vertical config is served from the intelligence service

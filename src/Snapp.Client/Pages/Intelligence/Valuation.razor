@@ -1,4 +1,274 @@
 @page "/intelligence/valuation"
 @attribute [Authorize]
+@using MudBlazor
+@using Snapp.Client.Services
+@using Snapp.Shared.DTOs.Intelligence
+@inject IIntelligenceService IntelligenceService
+@inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4">Practice Valuation</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Practice Valuation</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        Failed to load valuation data.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else if (_valuation is null)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+        No valuation available yet. Contribute practice data to generate a valuation.
+        <MudButton Variant="Variant.Text" Color="Color.Info" Href="/intelligence/contribute">Get Started</MudButton>
+    </MudAlert>
+}
+else
+{
+    @* Three-case display *@
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="1" Class="pa-6 d-flex flex-column align-center">
+                <MudText Typo="Typo.caption" Color="Color.Default">Downside</MudText>
+                <MudText Typo="Typo.h5" Class="mt-2">@FormatCurrency(_valuation.Downside)</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="3" Class="pa-6 d-flex flex-column align-center" Style="border: 2px solid var(--mud-palette-primary);">
+                <MudText Typo="Typo.caption" Color="Color.Primary">Base Case</MudText>
+                <MudText Typo="Typo.h3" Color="Color.Primary" Class="mt-2"><b>@FormatCurrency(_valuation.Base)</b></MudText>
+                <MudChip T="string" Color="@GetConfidenceColor(_valuation.ConfidenceScore)" Size="Size.Small" Class="mt-2">
+                    @($"{_valuation.ConfidenceScore:F0}% Confidence")
+                </MudChip>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="1" Class="pa-6 d-flex flex-column align-center">
+                <MudText Typo="Typo.caption" Color="Color.Default">Upside</MudText>
+                <MudText Typo="Typo.h5" Class="mt-2">@FormatCurrency(_valuation.Upside)</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        @* Driver Analysis *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Valuation Drivers</MudText>
+                @if (_valuation.Drivers.Any())
+                {
+                    <MudList T="ValuationDriver" Dense="true">
+                        @foreach (var driver in _valuation.Drivers)
+                        {
+                            <MudListItem T="ValuationDriver" Icon="@GetDriverIcon(driver.Direction)" IconColor="@GetDriverColor(driver.Direction)">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body1"><b>@FormatDriverName(driver.Name)</b></MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Default">@driver.Impact</MudText>
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudText Color="Color.Default">No driver analysis available.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* Scenario Modeling *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Scenario Modeling</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Default" Class="mb-3">
+                    Adjust key drivers to see how changes affect your valuation.
+                </MudText>
+
+                <MudNumericField T="decimal?" @bind-Value="_scenarioRevenue" Label="Annual Revenue ($)" Variant="Variant.Outlined" Class="mb-2" />
+                <MudNumericField T="decimal?" @bind-Value="_scenarioOverhead" Label="Overhead Ratio (%)" Variant="Variant.Outlined" Class="mb-2" Min="0" Max="100" />
+                <MudSlider T="decimal" @bind-Value="_scenarioOwnerProd" Min="0" Max="100" Step="5" Class="mb-2">
+                    Owner Production: @($"{_scenarioOwnerProd:F0}%")
+                </MudSlider>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Calculate"
+                           OnClick="RecalculateScenarioAsync"
+                           Disabled="_scenarioLoading"
+                           Class="mb-3">
+                    @if (_scenarioLoading)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+                    }
+                    Recalculate
+                </MudButton>
+
+                @if (_scenarioResult is not null)
+                {
+                    var delta = _scenarioResult.Base - _valuation.Base;
+                    var sign = delta >= 0 ? "+" : "";
+                    <MudAlert Severity="@(delta >= 0 ? Severity.Success : Severity.Warning)" Dense="true">
+                        This scenario → @sign@FormatCurrency(delta) base case (@FormatCurrency(_scenarioResult.Base))
+                    </MudAlert>
+                }
+                else if (_scenarioError)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">Failed to compute scenario.</MudAlert>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* Valuation History Chart *@
+        <MudItem xs="12">
+            <MudPaper Elevation="1" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Valuation History</MudText>
+                @if (_valuation.History.Any())
+                {
+                    <MudChart ChartType="ChartType.Line"
+                              ChartSeries="@_historySeries"
+                              XAxisLabels="@_historyLabels"
+                              Width="100%" Height="300px" />
+                }
+                else
+                {
+                    <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                        <MudIcon Icon="@Icons.Material.Filled.Timeline" Size="Size.Large" Color="Color.Default" />
+                        <MudText Color="Color.Default">History will appear after multiple valuation computations.</MudText>
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/intelligence">
+            Back to Dashboard
+        </MudButton>
+    </MudStack>
+}
+
+@code {
+    private ValuationResponse? _valuation;
+    private bool _loading = true;
+    private bool _error;
+
+    // Scenario
+    private decimal? _scenarioRevenue;
+    private decimal? _scenarioOverhead;
+    private decimal _scenarioOwnerProd = 50;
+    private ValuationResponse? _scenarioResult;
+    private bool _scenarioLoading;
+    private bool _scenarioError;
+
+    // History chart
+    private List<ChartSeries> _historySeries = new();
+    private string[] _historyLabels = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        StateHasChanged();
+
+        try
+        {
+            _valuation = await IntelligenceService.GetValuationAsync();
+            if (_valuation is null)
+            {
+                _loading = false;
+                StateHasChanged();
+                return;
+            }
+
+            if (_valuation.History.Any())
+            {
+                var ordered = _valuation.History.OrderBy(h => h.Date).ToList();
+                _historyLabels = ordered.Select(h => h.Date.ToString("MMM yy")).ToArray();
+                _historySeries = new List<ChartSeries>
+                {
+                    new() { Name = "Base Valuation", Data = ordered.Select(h => (double)h.Base).ToArray() },
+                };
+            }
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RecalculateScenarioAsync()
+    {
+        _scenarioLoading = true;
+        _scenarioError = false;
+        _scenarioResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var overrides = new Dictionary<string, string>();
+            if (_scenarioRevenue.HasValue)
+                overrides["AnnualRevenue"] = _scenarioRevenue.Value.ToString("F0");
+            if (_scenarioOverhead.HasValue)
+                overrides["OverheadRatio"] = _scenarioOverhead.Value.ToString("F1");
+            overrides["OwnerProductionPct"] = _scenarioOwnerProd.ToString("F0");
+
+            _scenarioResult = await IntelligenceService.ComputeScenarioAsync(overrides);
+            if (_scenarioResult is null) _scenarioError = true;
+        }
+        catch
+        {
+            _scenarioError = true;
+        }
+        finally
+        {
+            _scenarioLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatCurrency(decimal value)
+    {
+        if (Math.Abs(value) >= 1_000_000) return $"${value / 1_000_000:F1}M";
+        if (Math.Abs(value) >= 1_000) return $"${value / 1_000:F0}K";
+        return $"${value:N0}";
+    }
+
+    private static string FormatDriverName(string name)
+    {
+        // Convert PascalCase/camelCase to spaced words
+        return System.Text.RegularExpressions.Regex.Replace(name, "(?<=[a-z])(?=[A-Z])", " ");
+    }
+
+    private static string GetDriverIcon(string direction) => direction switch
+    {
+        "positive" => Icons.Material.Filled.TrendingUp,
+        "negative" => Icons.Material.Filled.TrendingDown,
+        _ => Icons.Material.Filled.TrendingFlat,
+    };
+
+    private static Color GetDriverColor(string direction) => direction switch
+    {
+        "positive" => Color.Success,
+        "negative" => Color.Error,
+        _ => Color.Default,
+    };
+
+    private static Color GetConfidenceColor(decimal confidence) => confidence switch
+    {
+        >= 75 => Color.Success,
+        >= 50 => Color.Warning,
+        _ => Color.Error,
+    };
+}

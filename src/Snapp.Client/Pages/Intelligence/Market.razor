@@ -1,0 +1,284 @@
+@page "/intelligence/market"
+@attribute [Authorize]
+@using MudBlazor
+@using Snapp.Client.Services
+@inject IIntelligenceService IntelligenceService
+
+<MudText Typo="Typo.h4" Class="mb-4">Market Intelligence</MudText>
+
+@* Geography Selection *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudAutocomplete T="string" @bind-Value="_selectedGeo" Label="Select Geography"
+                             SearchFunc="SearchGeographies" Variant="Variant.Outlined"
+                             AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                             ResetValueOnEmptyText="true" />
+        </MudItem>
+        <MudItem xs="12" md="2" Class="d-flex align-center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="LoadMarketAsync" Disabled="@(string.IsNullOrEmpty(_selectedGeo) || _loading)">
+                View Market
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" md="5">
+            <MudAutocomplete T="string" @bind-Value="_compareGeo" Label="Compare With (optional)"
+                             SearchFunc="SearchGeographies" Variant="Variant.Outlined"
+                             AdornmentIcon="@Icons.Material.Filled.CompareArrows"
+                             ResetValueOnEmptyText="true" />
+        </MudItem>
+    </MudGrid>
+    @if (!string.IsNullOrEmpty(_selectedGeo) && !string.IsNullOrEmpty(_compareGeo))
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.Compare"
+                   OnClick="CompareMarketsAsync" Disabled="_compareLoading" Class="mt-2">
+            Compare Markets
+        </MudButton>
+    }
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        Failed to load market data.
+        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadMarketAsync">Retry</MudButton>
+    </MudAlert>
+}
+else if (_profile is not null)
+{
+    @* Market Profile Card *@
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Default">Practitioner Density</MudText>
+                    <MudText Typo="Typo.h5">@($"{_profile.PractitionerDensity:F1}") <MudText Typo="Typo.caption" Inline="true">per 100K pop</MudText></MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Default">Competitors</MudText>
+                    <MudText Typo="Typo.h5">@_profile.CompetitorCount</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Default">Consolidation Pressure</MudText>
+                    <MudText Typo="Typo.h5" Color="@GetPressureColor(_profile.ConsolidationPressure)">
+                        @GetPressureLabel(_profile.ConsolidationPressure)
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    @* Demographic Trends *@
+    @if (_profile.DemographicTrends.Any())
+    {
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Demographic Trends</MudText>
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr><th>Indicator</th><th>Value</th><th>Trend</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var trend in _profile.DemographicTrends)
+                    {
+                        <tr>
+                            <td>@trend.Name</td>
+                            <td>@($"{trend.Value:F1}") @trend.Unit</td>
+                            <td><MudIcon Icon="@GetTrendIcon(trend.Direction)" Color="@GetTrendColor(trend.Direction)" Size="Size.Small" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+    }
+
+    @* Workforce Indicators *@
+    @if (_profile.WorkforceIndicators.Any())
+    {
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Workforce Indicators</MudText>
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr><th>Indicator</th><th>Value</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var indicator in _profile.WorkforceIndicators)
+                    {
+                        <tr>
+                            <td>@indicator.Name</td>
+                            <td>@($"{indicator.Value:F1}") @indicator.Unit</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+    }
+}
+
+@* Market Comparison *@
+@if (_compareLoading)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Secondary" Class="mt-4" />
+}
+else if (_compareResult is not null && _compareResult.Markets.Count >= 2)
+{
+    <MudPaper Elevation="1" Class="pa-4 mt-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Market Comparison</MudText>
+        <MudSimpleTable Dense="true" Hover="true" Striped="true">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    @foreach (var market in _compareResult.Markets)
+                    {
+                        <th>@market.GeoName</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Practitioner Density</td>
+                    @foreach (var m in _compareResult.Markets)
+                    {
+                        <td>@($"{m.PractitionerDensity:F1}")</td>
+                    }
+                </tr>
+                <tr>
+                    <td>Competitors</td>
+                    @foreach (var m in _compareResult.Markets)
+                    {
+                        <td>@m.CompetitorCount</td>
+                    }
+                </tr>
+                <tr>
+                    <td>Consolidation Pressure</td>
+                    @foreach (var m in _compareResult.Markets)
+                    {
+                        <td>@GetPressureLabel(m.ConsolidationPressure)</td>
+                    }
+                </tr>
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+}
+
+<MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/intelligence">
+        Back to Dashboard
+    </MudButton>
+</MudStack>
+
+@code {
+    private string? _selectedGeo;
+    private string? _compareGeo;
+    private MarketProfileResponse? _profile;
+    private MarketCompareResponse? _compareResult;
+    private bool _loading;
+    private bool _error;
+    private bool _compareLoading;
+
+    // Known geographies for autocomplete
+    private static readonly string[] _knownGeographies = new[]
+    {
+        "national", "northeast", "southeast", "midwest", "southwest", "west",
+        "new-york", "los-angeles", "chicago", "houston", "phoenix",
+        "philadelphia", "san-antonio", "san-diego", "dallas", "san-jose",
+    };
+
+    private Task<IEnumerable<string>> SearchGeographies(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult(_knownGeographies.AsEnumerable());
+
+        return Task.FromResult(_knownGeographies
+            .Where(g => g.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .AsEnumerable());
+    }
+
+    private async Task LoadMarketAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedGeo)) return;
+
+        _loading = true;
+        _error = false;
+        _profile = null;
+        StateHasChanged();
+
+        try
+        {
+            _profile = await IntelligenceService.GetMarketProfileAsync(_selectedGeo);
+            if (_profile is null) _error = true;
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CompareMarketsAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedGeo) || string.IsNullOrEmpty(_compareGeo)) return;
+
+        _compareLoading = true;
+        _compareResult = null;
+        StateHasChanged();
+
+        try
+        {
+            _compareResult = await IntelligenceService.CompareMarketsAsync(new[] { _selectedGeo, _compareGeo });
+        }
+        catch
+        {
+            // Silently fail comparison
+        }
+        finally
+        {
+            _compareLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string GetTrendIcon(string direction) => direction switch
+    {
+        "up" => Icons.Material.Filled.ArrowUpward,
+        "down" => Icons.Material.Filled.ArrowDownward,
+        _ => Icons.Material.Filled.Remove,
+    };
+
+    private static Color GetTrendColor(string direction) => direction switch
+    {
+        "up" => Color.Success,
+        "down" => Color.Error,
+        _ => Color.Default,
+    };
+
+    private static Color GetPressureColor(decimal pressure) => pressure switch
+    {
+        >= 0.7m => Color.Error,
+        >= 0.4m => Color.Warning,
+        _ => Color.Success,
+    };
+
+    private static string GetPressureLabel(decimal pressure) => pressure switch
+    {
+        >= 0.7m => "High",
+        >= 0.4m => "Medium",
+        _ => "Low",
+    };
+}
