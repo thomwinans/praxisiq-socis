@@ -12,6 +12,8 @@ public class EnrichmentProcessor
     private readonly BenchmarkDataLoader _benchmarkLoader;
     private readonly RegulatoryDataLoader _regulatoryLoader;
     private readonly BusinessListingLoader _businessListingLoader;
+    private readonly StateLicensingLoader _licensingLoader;
+    private readonly JobPostingLoader _jobPostingLoader;
     private readonly ILogger<EnrichmentProcessor> _logger;
 
     // Dental NPPES taxonomy codes
@@ -38,6 +40,8 @@ public class EnrichmentProcessor
         BenchmarkDataLoader benchmarkLoader,
         RegulatoryDataLoader regulatoryLoader,
         BusinessListingLoader businessListingLoader,
+        StateLicensingLoader licensingLoader,
+        JobPostingLoader jobPostingLoader,
         ILogger<EnrichmentProcessor> logger)
     {
         _providerSource = providerSource;
@@ -46,6 +50,8 @@ public class EnrichmentProcessor
         _benchmarkLoader = benchmarkLoader;
         _regulatoryLoader = regulatoryLoader;
         _businessListingLoader = businessListingLoader;
+        _licensingLoader = licensingLoader;
+        _jobPostingLoader = jobPostingLoader;
         _logger = logger;
     }
 
@@ -67,6 +73,12 @@ public class EnrichmentProcessor
 
         // Step 5: Business listing integration (M7.4)
         await LoadBusinessListingsAsync(vertical);
+
+        // Step 6: State licensing data (M7.6)
+        await LoadStateLicensingAsync(vertical);
+
+        // Step 7: Job posting intelligence (M7.7)
+        await LoadJobPostingsAsync();
     }
 
     private async Task LoadBenchmarksAsync()
@@ -88,6 +100,24 @@ public class EnrichmentProcessor
         _logger.LogInformation(
             "Business listing enrichment complete: {MatchCount} matched, {ReputationCount} with strong online reputation",
             matches.Count, reputationCount);
+    }
+
+    private async Task LoadStateLicensingAsync(string vertical)
+    {
+        var matches = await _licensingLoader.LoadAndMatchAsync(vertical);
+        var activeCount = matches.Count(m => m.License.Status == "active");
+        _logger.LogInformation(
+            "State licensing enrichment complete: {MatchCount} matched, {ActiveCount} active licenses",
+            matches.Count, activeCount);
+    }
+
+    private async Task LoadJobPostingsAsync()
+    {
+        var analyses = await _jobPostingLoader.LoadAndAnalyzeAsync();
+        var chronicCount = analyses.Count(a => a.ChronicTurnoverSignal);
+        _logger.LogInformation(
+            "Job posting enrichment complete: {PracticeCount} practices analyzed, {ChronicCount} with chronic turnover",
+            analyses.Count, chronicCount);
     }
 
     private async Task EnrichProvidersAsync(string vertical)

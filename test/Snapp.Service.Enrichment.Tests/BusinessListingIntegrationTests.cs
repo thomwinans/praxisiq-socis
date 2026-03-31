@@ -48,6 +48,17 @@ public class BusinessListingIntegrationTests : IAsyncLifetime, IDisposable
             _repo,
             NullLogger<RegulatoryDataLoader>.Instance);
 
+        var fixtureLicensingSource = new FixtureStateLicensingSource(
+            NullLogger<FixtureStateLicensingSource>.Instance);
+        var licensingLoader = new StateLicensingLoader(
+            fixtureLicensingSource, fixtureProviderSource, _repo,
+            NullLogger<StateLicensingLoader>.Instance);
+        var fixtureJobPostingSource = new FixtureJobPostingSource(
+            NullLogger<FixtureJobPostingSource>.Instance);
+        var jobPostingLoader = new JobPostingLoader(
+            fixtureJobPostingSource, _repo,
+            NullLogger<JobPostingLoader>.Instance);
+
         _processor = new EnrichmentProcessor(
             fixtureProviderSource,
             fixtureMarketSource,
@@ -55,6 +66,8 @@ public class BusinessListingIntegrationTests : IAsyncLifetime, IDisposable
             benchmarkLoader,
             regulatoryLoader,
             _loader,
+            licensingLoader,
+            jobPostingLoader,
             NullLogger<EnrichmentProcessor>.Instance);
     }
 

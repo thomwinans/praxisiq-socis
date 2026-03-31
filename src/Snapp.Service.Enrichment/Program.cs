@@ -59,10 +59,18 @@ else
     services.AddSingleton<IBusinessListingProvider, FixtureBusinessListingSource>();
 }
 
-// Benchmark, regulatory, and business listing data loaders
+// State licensing source — fixture or API based on config
+services.AddSingleton<IStateLicensingSource, FixtureStateLicensingSource>();
+
+// Job posting source — fixture or API based on config
+services.AddSingleton<IJobPostingSource, FixtureJobPostingSource>();
+
+// Benchmark, regulatory, business listing, licensing, and job posting data loaders
 services.AddSingleton<BenchmarkDataLoader>();
 services.AddSingleton<RegulatoryDataLoader>();
 services.AddSingleton<BusinessListingLoader>();
+services.AddSingleton<StateLicensingLoader>();
+services.AddSingleton<JobPostingLoader>();
 
 // Processor
 services.AddSingleton<EnrichmentProcessor>();

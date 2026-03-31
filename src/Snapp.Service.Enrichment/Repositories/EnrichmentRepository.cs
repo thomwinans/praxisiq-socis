@@ -430,6 +430,114 @@ public class EnrichmentRepository
         return response.Items;
     }
 
+    public async Task SaveStateLicensingSignalsBatchAsync(List<LicensingMatchResult> matches)
+    {
+        var chunks = matches.Chunk(25);
+        foreach (var chunk in chunks)
+        {
+            var requests = new List<WriteRequest>();
+            foreach (var match in chunk)
+            {
+                var now = DateTime.UtcNow.ToString("O");
+                var signalId = Ulid.NewUlid().ToString();
+
+                var item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new($"{KeyPrefixes.Signal}{match.Provider.Npi}"),
+                    ["SK"] = new($"LICENSE#{signalId}"),
+                    ["SignalId"] = new(signalId),
+                    ["Npi"] = new(match.Provider.Npi),
+                    ["LicenseNumber"] = new(match.License.LicenseNumber),
+                    ["CredentialType"] = new(match.License.CredentialType),
+                    ["LicenseStatus"] = new(match.License.Status),
+                    ["IssueDate"] = new(match.License.IssueDate),
+                    ["ExpirationDate"] = new(match.License.ExpirationDate),
+                    ["LicenseState"] = new(match.License.State),
+                    ["BoardName"] = new(match.License.BoardName),
+                    ["MatchMethod"] = new(match.MatchMethod),
+                    ["MatchConfidence"] = new() { N = match.MatchConfidence.ToString("F2") },
+                    ["TenureYearsFromLicense"] = new() { N = match.TenureYearsFromLicense.ToString("F1") },
+                    ["Source"] = new("state-licensing-fixture"),
+                    ["EnrichedAt"] = new(now),
+                    ["GSI1PK"] = new($"LICENSE#{match.License.State}"),
+                    ["GSI1SK"] = new($"NPI#{match.Provider.Npi}"),
+                };
+
+                requests.Add(new WriteRequest { PutRequest = new PutRequest { Item = item } });
+            }
+
+            await _db.BatchWriteItemAsync(new BatchWriteItemRequest
+            {
+                RequestItems = new Dictionary<string, List<WriteRequest>>
+                {
+                    [TableNames.Intelligence] = requests,
+                },
+            });
+        }
+    }
+
+    public async Task SaveJobPostingSignalsBatchAsync(List<JobPostingAnalysis> analyses)
+    {
+        var chunks = analyses.Chunk(25);
+        foreach (var chunk in chunks)
+        {
+            var requests = new List<WriteRequest>();
+            foreach (var analysis in chunk)
+            {
+                var now = DateTime.UtcNow.ToString("O");
+                var signalId = Ulid.NewUlid().ToString();
+                var practiceKey = $"{analysis.PracticeName}|{analysis.PracticeCity}|{analysis.PracticeState}";
+
+                var item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new($"JOBPOST#{practiceKey}"),
+                    ["SK"] = new($"ANALYSIS#{signalId}"),
+                    ["SignalId"] = new(signalId),
+                    ["PracticeName"] = new(analysis.PracticeName),
+                    ["PracticeCity"] = new(analysis.PracticeCity),
+                    ["PracticeState"] = new(analysis.PracticeState),
+                    ["TotalPostings"] = new() { N = analysis.TotalPostings.ToString() },
+                    ["UniqueRoles"] = new() { N = analysis.UniqueRoles.ToString() },
+                    ["UrgentPostings"] = new() { N = analysis.UrgentPostings.ToString() },
+                    ["PostingFrequency"] = new() { N = analysis.PostingFrequency.ToString("F2") },
+                    ["ChronicTurnoverSignal"] = new() { BOOL = analysis.ChronicTurnoverSignal },
+                    ["WorkforcePressureScore"] = new() { N = analysis.WorkforcePressureScore.ToString("F2") },
+                    ["Source"] = new("job-posting-fixture"),
+                    ["EnrichedAt"] = new(now),
+                    ["GSI1PK"] = new($"JOBPOST#{analysis.PracticeState}"),
+                    ["GSI1SK"] = new($"PRACTICE#{analysis.PracticeName}"),
+                };
+
+                // Store role repetitions as a map list
+                if (analysis.RoleRepetitions.Count > 0)
+                {
+                    item["RoleRepetitions"] = new()
+                    {
+                        L = analysis.RoleRepetitions.Select(r => new AttributeValue
+                        {
+                            M = new Dictionary<string, AttributeValue>
+                            {
+                                ["Role"] = new(r.Role),
+                                ["Count"] = new() { N = r.Count.ToString() },
+                                ["IsChronicTurnover"] = new() { BOOL = r.IsChronicTurnover },
+                            },
+                        }).ToList(),
+                    };
+                }
+
+                requests.Add(new WriteRequest { PutRequest = new PutRequest { Item = item } });
+            }
+
+            await _db.BatchWriteItemAsync(new BatchWriteItemRequest
+            {
+                RequestItems = new Dictionary<string, List<WriteRequest>>
+                {
+                    [TableNames.Intelligence] = requests,
+                },
+            });
+        }
+    }
+
     private static decimal ComputeConsolidationPressure(MarketRecord market)
     {
         // Heuristic: higher DSO presence + lower provider density = higher pressure
