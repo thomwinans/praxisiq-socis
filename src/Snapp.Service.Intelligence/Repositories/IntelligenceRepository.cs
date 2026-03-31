@@ -174,6 +174,24 @@ public class IntelligenceRepository : IIntelligenceRepository
         });
     }
 
+    public async Task<List<Valuation>> GetValuationHistoryAsync(string userId, int limit = 12)
+    {
+        var response = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Valuation}{userId}"),
+                [":prefix"] = new("SNAPSHOT#"),
+            },
+            ScanIndexForward = false,
+            Limit = Math.Min(limit, 50),
+        });
+
+        return response.Items.Select(MapValuation).ToList();
+    }
+
     // ── Benchmarks ───────────────────────────────────────────────
 
     public async Task<List<Benchmark>> GetBenchmarksAsync(string specialty, string geography, string sizeBand)

@@ -49,6 +49,9 @@ builder.Services.AddSingleton<ScoringEngine>();
 // Career Stage Classifier
 builder.Services.AddSingleton<CareerStageClassifier>();
 
+// Valuation Engine
+builder.Services.AddSingleton<ValuationEngine>();
+
 // JSON structured logging
 builder.Logging.AddJsonConsole(options =>
 {
@@ -70,6 +73,7 @@ app.MapScoreEndpoints();
 app.MapBenchmarkEndpoints();
 app.MapDashboardEndpoints();
 app.MapCareerStageEndpoints();
+app.MapValuationEndpoints();
 
 #if LAMBDA
 await app.RunLambdaAsync();

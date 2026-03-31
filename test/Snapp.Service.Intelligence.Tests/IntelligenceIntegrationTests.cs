@@ -630,6 +630,235 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
         body.RiskFlags.Should().Contain(r => r.Type == "overextension");
     }
 
+    // ── Valuation Tests ───────────────────────────────────────────
+
+    [Fact]
+    public async Task ComputeValuation_WithContributions_ReturnsThreeCases()
+    {
+        var jwt = await AuthenticateAsync($"intel-val-compute-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        // Seed benchmarks
+        await SeedBenchmarkDataAsync("general-dentistry", "national", "small");
+
+        // Contribute financial data
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "financial",
+            DataPoints = new Dictionary<string, string>
+            {
+                ["AnnualRevenue"] = "900000",
+                ["ProfitMargin"] = "22",
+            },
+        });
+
+        // Contribute owner risk data
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "owner_risk",
+            DataPoints = new Dictionary<string, string>
+            {
+                ["OwnerProductionPct"] = "75",
+                ["ProviderCount"] = "2",
+                ["SuccessionPlanExists"] = "false",
+            },
+        });
+
+        var response = await _http.PostAsync("/api/intel/valuation/compute", null);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<ValuationResponse>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Downside.Should().BeGreaterThan(0);
+        body.Base.Should().BeGreaterThan(body.Downside);
+        body.Upside.Should().BeGreaterThan(body.Base);
+        body.ConfidenceScore.Should().BeGreaterThan(40);
+        body.Drivers.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetValuation_AfterCompute_ReturnsSameWithHistory()
+    {
+        var jwt = await AuthenticateAsync($"intel-val-get-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        await SeedBenchmarkDataAsync("general-dentistry", "national", "small");
+
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "financial",
+            DataPoints = new Dictionary<string, string> { ["AnnualRevenue"] = "1000000", ["ProfitMargin"] = "25" },
+        });
+
+        var computeResp = await _http.PostAsync("/api/intel/valuation/compute", null);
+        var computed = await computeResp.Content.ReadFromJsonAsync<ValuationResponse>(JsonOptions);
+
+        var getResp = await _http.GetAsync("/api/intel/valuation");
+        getResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var fetched = await getResp.Content.ReadFromJsonAsync<ValuationResponse>(JsonOptions);
+        fetched!.Base.Should().Be(computed!.Base);
+        fetched.History.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetValuation_NoCompute_ReturnsNotFound()
+    {
+        var jwt = await AuthenticateAsync($"intel-val-nf-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.GetAsync("/api/intel/valuation");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ScenarioValuation_WithOverrides_ProducesDifferentResults()
+    {
+        var jwt = await AuthenticateAsync($"intel-val-scenario-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        await SeedBenchmarkDataAsync("general-dentistry", "national", "small");
+
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "financial",
+            DataPoints = new Dictionary<string, string> { ["AnnualRevenue"] = "900000", ["ProfitMargin"] = "20" },
+        });
+
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "owner_risk",
+            DataPoints = new Dictionary<string, string> { ["OwnerProductionPct"] = "80" },
+        });
+
+        // Compute baseline
+        var baseResp = await _http.PostAsync("/api/intel/valuation/compute", null);
+        var baseline = await baseResp.Content.ReadFromJsonAsync<ValuationResponse>(JsonOptions);
+
+        // Scenario: reduce owner production to 30% (should increase valuation via higher multiple)
+        var scenarioResp = await _http.PostAsJsonAsync("/api/intel/valuation/scenario", new
+        {
+            Overrides = new Dictionary<string, string> { ["OwnerProductionPct"] = "30" },
+        });
+
+        scenarioResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var scenario = await scenarioResp.Content.ReadFromJsonAsync<ValuationResponse>(JsonOptions);
+        scenario.Should().NotBeNull();
+
+        // Lower owner production should yield higher base (higher multiple)
+        scenario!.Base.Should().BeGreaterThan(baseline!.Base);
+    }
+
+    [Fact]
+    public async Task ScenarioValuation_EmptyOverrides_ReturnsBadRequest()
+    {
+        var jwt = await AuthenticateAsync($"intel-val-scenbad-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        var response = await _http.PostAsJsonAsync("/api/intel/valuation/scenario", new
+        {
+            Overrides = new Dictionary<string, string>(),
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ComputeValuation_SignificantChange_QueuesNotification()
+    {
+        var jwt = await AuthenticateAsync($"intel-val-notif-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+        var userId = ExtractUserId(jwt);
+
+        await SeedBenchmarkDataAsync("general-dentistry", "national", "small");
+
+        // Ensure notification table exists
+        await EnsureNotifTableAsync();
+
+        // First compute — establishes baseline
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "financial",
+            DataPoints = new Dictionary<string, string> { ["AnnualRevenue"] = "900000", ["ProfitMargin"] = "20" },
+        });
+        await _http.PostAsync("/api/intel/valuation/compute", null);
+
+        // Second compute with significantly different data (override via new contribution)
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "financial",
+            DataPoints = new Dictionary<string, string> { ["AnnualRevenue"] = "1500000", ["ProfitMargin"] = "30" },
+        });
+        await _http.PostAsync("/api/intel/valuation/compute", null);
+
+        // Check that a notification was created
+        var notifResponse = await _dynamo.Client.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Notifications,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Notification}{userId}"),
+            },
+        });
+
+        notifResponse.Items.Should().Contain(item =>
+            item.ContainsKey("Type") && item["Type"].S == "ValuationChanged");
+    }
+
+    [Fact]
+    public async Task ComputeValuation_NoAuth_ReturnsUnauthorized()
+    {
+        _http.DefaultRequestHeaders.Authorization = null;
+
+        var response = await _http.PostAsync("/api/intel/valuation/compute", null);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ComputeValuation_MissingData_WiderRangeLowerConfidence()
+    {
+        var jwt = await AuthenticateAsync($"intel-val-missing-{Guid.NewGuid():N}@test.snapp");
+        if (jwt is null) return;
+
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        await SeedBenchmarkDataAsync("general-dentistry", "national", "small");
+
+        // Minimal data — only one category
+        await _http.PostAsJsonAsync("/api/intel/contribute", new
+        {
+            Category = "financial",
+            DataPoints = new Dictionary<string, string> { ["AnnualRevenue"] = "800000" },
+        });
+
+        var response = await _http.PostAsync("/api/intel/valuation/compute", null);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<ValuationResponse>(JsonOptions);
+        body.Should().NotBeNull();
+
+        // With minimal data, confidence should be lower
+        body!.ConfidenceScore.Should().BeLessThan(70);
+
+        // Range should still be valid: downside < base < upside
+        body.Downside.Should().BeLessThan(body.Base);
+        body.Base.Should().BeLessThan(body.Upside);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────
 
     private async Task<string?> AuthenticateAsync(string email)
@@ -673,6 +902,32 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
         var handler = new JwtSecurityTokenHandler();
         var token = handler.ReadJwtToken(jwt);
         return token.Subject;
+    }
+
+    private async Task EnsureNotifTableAsync()
+    {
+        try
+        {
+            await _dynamo.Client.DescribeTableAsync(TableNames.Notifications);
+        }
+        catch (ResourceNotFoundException)
+        {
+            await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+            {
+                TableName = TableNames.Notifications,
+                KeySchema =
+                [
+                    new KeySchemaElement("PK", KeyType.HASH),
+                    new KeySchemaElement("SK", KeyType.RANGE),
+                ],
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition("PK", ScalarAttributeType.S),
+                    new AttributeDefinition("SK", ScalarAttributeType.S),
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST,
+            });
+        }
     }
 
     private async Task EnsureIntelTableAsync()
