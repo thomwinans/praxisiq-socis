@@ -31,8 +31,8 @@
       "title": "Sprint 15 integration validation",
       "agent": "quinn",
       "depends_on": ["S15-001", "S15-002"],
-      "prompt": "Validate Sprint 15. Run all tests. Walkthrough: configure a channel relay to a Papercut address, verify it, create a post, verify relay email arrives in Papercut with correct formatting. Write .claude/reports/sprint-15-validation.md.",
-      "done_when": "All tests pass. Channel relay works end-to-end with Papercut. Validation report written."
+      "prompt": "Run exactly these steps. Do not explore, investigate, or retry failures beyond one attempt.\n\n1. `dotnet build snapp.sln` — if it fails, fix the build error and rebuild once.\n2. `dotnet test snapp.sln --verbosity quiet` — capture output. Record pass/fail counts per project.\n3. Write .claude/reports/sprint-15-validation.md with build result, test table, total counts, any failure names.\n4. `git add -A && git commit -m '[S15-004] Sprint 15 integration validation'`\n\nDo NOT re-run failing tests, investigate root causes, fix test code, or do manual walkthroughs.",
+      "done_when": "Validation report written with build and test results. Committed."
     }
   ]
 }

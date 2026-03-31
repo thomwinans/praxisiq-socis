@@ -31,8 +31,8 @@
       "title": "Sprint 14 integration validation",
       "agent": "quinn",
       "depends_on": ["S14-001a", "S14-001b", "S14-002"],
-      "prompt": "Validate Sprint 14. Run all tests. Verify enriched intelligence includes licensing and job posting signals. Verify compensation benchmarks display. Write .claude/reports/sprint-14-validation.md.",
-      "done_when": "All tests pass. Extended enrichment and compensation benchmarks work. Validation report written."
+      "prompt": "Run exactly these steps. Do not explore, investigate, or retry failures beyond one attempt.\n\n1. `dotnet build snapp.sln` — if it fails, fix the build error and rebuild. One attempt only.\n2. `dotnet test snapp.sln --verbosity quiet` — capture output. Record pass/fail counts per project.\n3. Write .claude/reports/sprint-14-validation.md with:\n   - Build result (pass/fail)\n   - Test table (project, passed, failed, total)\n   - Total tests across all projects\n   - If any tests failed: list the failing test names and the error message (from the test output, not by re-running)\n4. `git add -A && git commit -m '[S14-003] Sprint 14 integration validation'`\n\nDo NOT: re-run failing tests, investigate root causes, fix test code, run Docker commands, or do manual walkthroughs. Just build, test, report, commit.",
+      "done_when": "Validation report written with build and test results. Committed."
     }
   ]
 }
