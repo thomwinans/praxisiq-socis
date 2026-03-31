@@ -1,0 +1,127 @@
+@inject IReferralService ReferralService
+@inject INetworkService NetworkService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">New Referral</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="string"
+                       @bind-Value="_selectedNetworkId"
+                       Label="Network"
+                       Variant="Variant.Outlined"
+                       Required="true"
+                       RequiredError="Network is required">
+                @foreach (var network in _networks)
+                {
+                    <MudSelectItem T="string" Value="@network.NetworkId">@network.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudAutocomplete T="MemberOption"
+                             @bind-Value="_selectedMember"
+                             Label="Receiver"
+                             SearchFunc="SearchMembersAsync"
+                             ToStringFunc="@(m => m?.DisplayName ?? string.Empty)"
+                             Variant="Variant.Outlined"
+                             Required="true"
+                             RequiredError="Receiver is required"
+                             Disabled="@string.IsNullOrEmpty(_selectedNetworkId)" />
+
+            <MudTextField T="string"
+                          @bind-Value="_specialty"
+                          Label="Specialty"
+                          MaxLength="100"
+                          Counter="100"
+                          Variant="Variant.Outlined" />
+
+            <MudTextField T="string"
+                          @bind-Value="_notes"
+                          Label="Notes"
+                          Lines="4"
+                          MaxLength="1000"
+                          Counter="1000"
+                          Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SubmitAsync"
+                   Disabled="@(!CanSubmit || _submitting)">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Send Referral
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private List<NetworkResponse> _networks = new();
+    private List<MemberResponse> _members = new();
+    private string? _selectedNetworkId;
+    private MemberOption? _selectedMember;
+    private string? _specialty;
+    private string? _notes;
+    private bool _submitting;
+
+    private bool CanSubmit =>
+        !string.IsNullOrEmpty(_selectedNetworkId)
+        && _selectedMember is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await NetworkService.GetMyNetworksAsync();
+        _networks = response.Networks;
+    }
+
+    private async Task<IEnumerable<MemberOption>> SearchMembersAsync(string? value, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(_selectedNetworkId))
+            return Enumerable.Empty<MemberOption>();
+
+        if (!_members.Any())
+        {
+            var response = await NetworkService.GetMembersAsync(_selectedNetworkId);
+            _members = response.Members;
+        }
+
+        var options = _members
+            .Select(m => new MemberOption(m.UserId, m.DisplayName));
+
+        if (!string.IsNullOrWhiteSpace(value))
+            options = options.Where(o => o.DisplayName.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return options;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitAsync()
+    {
+        if (!CanSubmit) return;
+
+        _submitting = true;
+        var request = new CreateReferralRequest
+        {
+            ReceiverUserId = _selectedMember!.UserId,
+            NetworkId = _selectedNetworkId!,
+            Specialty = _specialty,
+            Notes = _notes
+        };
+
+        var result = await ReferralService.CreateAsync(request);
+        if (result is not null)
+            MudDialog.Close(DialogResult.Ok(true));
+        _submitting = false;
+    }
+
+    public record MemberOption(string UserId, string DisplayName);
+}

@@ -1,0 +1,82 @@
+@inject IReferralService ReferralService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Record Outcome</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">
+                Referral: @ReferralSender → @ReferralReceiver
+            </MudText>
+
+            <MudTextField T="string"
+                          @bind-Value="_outcome"
+                          Label="Outcome"
+                          Lines="4"
+                          MaxLength="2000"
+                          Counter="2000"
+                          Required="true"
+                          RequiredError="Outcome description is required"
+                          Variant="Variant.Outlined"
+                          HelperText="Describe the outcome of this referral." />
+
+            <MudCheckBox T="bool"
+                         @bind-Value="_success"
+                         Label="Successful outcome"
+                         Color="Color.Success" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SubmitAsync"
+                   Disabled="@(!CanSubmit || _submitting)">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Record Outcome
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string ReferralId { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ReferralSender { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ReferralReceiver { get; set; } = string.Empty;
+
+    private string? _outcome;
+    private bool _success;
+    private bool _submitting;
+
+    private bool CanSubmit => !string.IsNullOrWhiteSpace(_outcome);
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitAsync()
+    {
+        if (!CanSubmit) return;
+
+        _submitting = true;
+        var request = new RecordOutcomeRequest
+        {
+            Outcome = _outcome!,
+            Success = _success
+        };
+
+        var result = await ReferralService.RecordOutcomeAsync(ReferralId, request);
+        if (result is not null)
+            MudDialog.Close(DialogResult.Ok(true));
+        _submitting = false;
+    }
+}

@@ -1,0 +1,120 @@
+@inject IReferralService ReferralService
+@inject ISnackbar Snackbar
+
+<MudCard Elevation="2" Class="mb-3">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.subtitle1">
+                        @Referral.SenderDisplayName → @Referral.ReceiverDisplayName
+                    </MudText>
+                    @if (!string.IsNullOrWhiteSpace(Referral.Specialty))
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default">@Referral.Specialty</MudText>
+                    }
+                </MudStack>
+                <MudChip T="string"
+                         Color="@StatusColor"
+                         Size="Size.Small"
+                         Variant="Variant.Filled">
+                    @Referral.Status
+                </MudChip>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+
+    <MudCardContent>
+        <MudText Typo="Typo.caption" Color="Color.Default">
+            @Referral.CreatedAt.ToString("MMM d, yyyy")
+        </MudText>
+
+        @if (!string.IsNullOrWhiteSpace(Referral.Notes))
+        {
+            <MudExpansionPanels Class="mt-2" Elevation="0">
+                <MudExpansionPanel Text="Details">
+                    <MudText Typo="Typo.body2">@Referral.Notes</MudText>
+                    @if (Referral.OutcomeRecordedAt.HasValue)
+                    {
+                        <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Default">
+                            Outcome recorded @Referral.OutcomeRecordedAt.Value.ToString("MMM d, yyyy")
+                        </MudText>
+                    }
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+    </MudCardContent>
+
+    <MudCardActions>
+        @if (ShowAccept)
+        {
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Primary"
+                       OnClick="AcceptAsync"
+                       Disabled="_processing">
+                Accept
+            </MudButton>
+        }
+        @if (ShowRecordOutcome)
+        {
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       OnClick="() => OnRecordOutcome.InvokeAsync(Referral)"
+                       Disabled="_processing">
+                Record Outcome
+            </MudButton>
+        }
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired]
+    public ReferralResponse Referral { get; set; } = null!;
+
+    [Parameter]
+    public string? CurrentUserId { get; set; }
+
+    [Parameter]
+    public EventCallback<ReferralResponse> OnRecordOutcome { get; set; }
+
+    [Parameter]
+    public EventCallback OnStatusChanged { get; set; }
+
+    private bool _processing;
+
+    private bool ShowAccept =>
+        Referral.Status == ReferralStatus.Created
+        && CurrentUserId == Referral.ReceiverUserId;
+
+    private bool ShowRecordOutcome =>
+        Referral.Status == ReferralStatus.Accepted
+        && (CurrentUserId == Referral.SenderUserId || CurrentUserId == Referral.ReceiverUserId);
+
+    private Color StatusColor => Referral.Status switch
+    {
+        ReferralStatus.Created => Color.Info,
+        ReferralStatus.Accepted => Color.Warning,
+        ReferralStatus.Completed => Color.Success,
+        ReferralStatus.Expired => Color.Default,
+        _ => Color.Default
+    };
+
+    private async Task AcceptAsync()
+    {
+        _processing = true;
+        var result = await ReferralService.UpdateStatusAsync(
+            Referral.ReferralId,
+            new UpdateReferralStatusRequest { Status = ReferralStatus.Accepted });
+
+        if (result is not null)
+        {
+            Snackbar.Add("Referral accepted!", Severity.Success);
+            await OnStatusChanged.InvokeAsync();
+        }
+        else
+        {
+            Snackbar.Add("Failed to accept referral.", Severity.Error);
+        }
+        _processing = false;
+    }
+}
