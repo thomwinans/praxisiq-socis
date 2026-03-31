@@ -388,7 +388,7 @@ public class DealRoomIntegrationTests : IAsyncLifetime
         }
         catch (ResourceNotFoundException)
         {
-            await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+            try { await _dynamo.Client.CreateTableAsync(new CreateTableRequest
             {
                 TableName = TableNames.Transactions,
                 KeySchema =
@@ -402,7 +402,7 @@ public class DealRoomIntegrationTests : IAsyncLifetime
                     new AttributeDefinition("SK", ScalarAttributeType.S),
                 ],
                 BillingMode = BillingMode.PAY_PER_REQUEST,
-            });
+            }); } catch (ResourceInUseException) { /* concurrent creation */ }
         }
     }
 

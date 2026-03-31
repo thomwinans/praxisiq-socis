@@ -368,21 +368,28 @@ public class NotificationIntegrationTests : IAsyncLifetime
         }
         catch (ResourceNotFoundException)
         {
-            await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+            try
             {
-                TableName = TableNames.Notifications,
-                KeySchema =
-                [
-                    new KeySchemaElement("PK", KeyType.HASH),
-                    new KeySchemaElement("SK", KeyType.RANGE),
-                ],
-                AttributeDefinitions =
-                [
-                    new AttributeDefinition("PK", ScalarAttributeType.S),
-                    new AttributeDefinition("SK", ScalarAttributeType.S),
-                ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
-            });
+                await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+                {
+                    TableName = TableNames.Notifications,
+                    KeySchema =
+                    [
+                        new KeySchemaElement("PK", KeyType.HASH),
+                        new KeySchemaElement("SK", KeyType.RANGE),
+                    ],
+                    AttributeDefinitions =
+                    [
+                        new AttributeDefinition("PK", ScalarAttributeType.S),
+                        new AttributeDefinition("SK", ScalarAttributeType.S),
+                    ],
+                    BillingMode = BillingMode.PAY_PER_REQUEST,
+                });
+            }
+            catch (ResourceInUseException)
+            {
+                // Another test created the table concurrently
+            }
         }
     }
 }

@@ -530,9 +530,11 @@ public class NetworkIntegrationTests : IAsyncLifetime
         }
         catch (ResourceNotFoundException)
         {
-            await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+            try
             {
-                TableName = TableNames.Networks,
+                await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+                {
+                    TableName = TableNames.Networks,
                 KeySchema =
                 [
                     new KeySchemaElement("PK", KeyType.HASH),
@@ -570,8 +572,13 @@ public class NetworkIntegrationTests : IAsyncLifetime
                         Projection = new Projection { ProjectionType = ProjectionType.ALL },
                     },
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
-            });
+                    BillingMode = BillingMode.PAY_PER_REQUEST,
+                });
+            }
+            catch (ResourceInUseException)
+            {
+                // Another test created the table concurrently
+            }
         }
     }
 }

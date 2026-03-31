@@ -32,21 +32,28 @@ public sealed class DynamoDbTestHelper : IDisposable
         }
         catch (ResourceNotFoundException)
         {
-            await _client.CreateTableAsync(new CreateTableRequest
+            try
             {
-                TableName = TableNames.Users,
-                KeySchema =
-                [
-                    new KeySchemaElement("PK", KeyType.HASH),
-                    new KeySchemaElement("SK", KeyType.RANGE)
-                ],
-                AttributeDefinitions =
-                [
-                    new AttributeDefinition("PK", ScalarAttributeType.S),
-                    new AttributeDefinition("SK", ScalarAttributeType.S)
-                ],
-                BillingMode = BillingMode.PAY_PER_REQUEST
-            });
+                await _client.CreateTableAsync(new CreateTableRequest
+                {
+                    TableName = TableNames.Users,
+                    KeySchema =
+                    [
+                        new KeySchemaElement("PK", KeyType.HASH),
+                        new KeySchemaElement("SK", KeyType.RANGE)
+                    ],
+                    AttributeDefinitions =
+                    [
+                        new AttributeDefinition("PK", ScalarAttributeType.S),
+                        new AttributeDefinition("SK", ScalarAttributeType.S)
+                    ],
+                    BillingMode = BillingMode.PAY_PER_REQUEST
+                });
+            }
+            catch (ResourceInUseException)
+            {
+                // Another test created the table concurrently — safe to ignore
+            }
         }
     }
 

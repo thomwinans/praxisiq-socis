@@ -1079,7 +1079,7 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
         }
         catch (ResourceNotFoundException)
         {
-            await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+            try { await _dynamo.Client.CreateTableAsync(new CreateTableRequest
             {
                 TableName = TableNames.Notifications,
                 KeySchema =
@@ -1093,7 +1093,7 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
                     new AttributeDefinition("SK", ScalarAttributeType.S),
                 ],
                 BillingMode = BillingMode.PAY_PER_REQUEST,
-            });
+            }); } catch (ResourceInUseException) { /* concurrent creation */ }
         }
     }
 
@@ -1105,7 +1105,7 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
         }
         catch (ResourceNotFoundException)
         {
-            await _dynamo.Client.CreateTableAsync(new CreateTableRequest
+            try { await _dynamo.Client.CreateTableAsync(new CreateTableRequest
             {
                 TableName = TableNames.Intelligence,
                 KeySchema =
@@ -1146,7 +1146,7 @@ public class IntelligenceIntegrationTests : IAsyncLifetime
                     },
                 ],
                 BillingMode = BillingMode.PAY_PER_REQUEST,
-            });
+            }); } catch (ResourceInUseException) { /* concurrent creation */ }
         }
     }
 
