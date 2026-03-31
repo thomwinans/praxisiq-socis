@@ -1,0 +1,32 @@
+@using MudBlazor
+@using Snapp.Client.Services
+
+<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+    <MudTooltip Text="@UnlocksTooltip">
+        <MudChip T="string" Icon="@Icons.Material.Filled.LockOpen" Color="Color.Success" Size="Size.Small">
+            @TotalUnlocks insight@(TotalUnlocks == 1 ? "" : "s") unlocked
+        </MudChip>
+    </MudTooltip>
+    @if (CurrentStreak > 0)
+    {
+        <MudTooltip Text="@StreakTooltip">
+            <MudChip T="string" Icon="@Icons.Material.Filled.LocalFireDepartment" Color="Color.Warning" Size="Size.Small">
+                @CurrentStreak day streak
+            </MudChip>
+        </MudTooltip>
+    }
+</MudStack>
+
+@code {
+    [Parameter]
+    public int TotalUnlocks { get; set; }
+
+    [Parameter]
+    public int TotalAnswered { get; set; }
+
+    [Parameter]
+    public int CurrentStreak { get; set; }
+
+    private string UnlocksTooltip => $"{TotalAnswered} questions answered, {TotalUnlocks} insights unlocked";
+    private string StreakTooltip => $"You've answered questions {CurrentStreak} day{(CurrentStreak == 1 ? "" : "s")} in a row!";
+}

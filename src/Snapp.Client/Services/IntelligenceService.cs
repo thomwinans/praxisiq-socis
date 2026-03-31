@@ -82,6 +82,27 @@ public class IntelligenceService : IIntelligenceService
         return await response.Content.ReadFromJsonAsync<MarketCompareResponse>();
     }
 
+    public async Task<PendingQuestionsResponse?> GetPendingQuestionsAsync()
+    {
+        var response = await _http.GetAsync("intel/questions");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<PendingQuestionsResponse>();
+    }
+
+    public async Task<AnswerQuestionResponse?> AnswerQuestionAsync(string questionId, string answer)
+    {
+        var response = await _http.PostAsJsonAsync($"intel/questions/{Uri.EscapeDataString(questionId)}/answer", new { Answer = answer });
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<AnswerQuestionResponse>();
+    }
+
+    public async Task<ProgressionResponse?> GetProgressionAsync()
+    {
+        var response = await _http.GetAsync("intel/questions/progression");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<ProgressionResponse>();
+    }
+
     public async Task<VerticalConfigResponse?> GetVerticalConfigAsync()
     {
         // The vertical config is served from the intelligence service

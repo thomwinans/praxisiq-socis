@@ -16,6 +16,9 @@ public interface IIntelligenceService
     Task<CareerStageResponse?> GetCareerStageAsync();
     Task<MarketProfileResponse?> GetMarketProfileAsync(string geoId);
     Task<MarketCompareResponse?> CompareMarketsAsync(string[] geoIds);
+    Task<PendingQuestionsResponse?> GetPendingQuestionsAsync();
+    Task<AnswerQuestionResponse?> AnswerQuestionAsync(string questionId, string answer);
+    Task<ProgressionResponse?> GetProgressionAsync();
 }
 
 public class ScoreResponse
@@ -121,4 +124,47 @@ public class WorkforceIndicator
 public class MarketCompareResponse
 {
     public List<MarketProfileResponse> Markets { get; set; } = new();
+}
+
+public class PendingQuestionsResponse
+{
+    public List<QuestionItem> Questions { get; set; } = new();
+    public decimal CurrentConfidence { get; set; }
+}
+
+public class QuestionItem
+{
+    public string QuestionId { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string PromptText { get; set; } = string.Empty;
+    public List<string> Choices { get; set; } = new();
+    public string UnlockDescription { get; set; } = string.Empty;
+    public decimal Priority { get; set; }
+}
+
+public class AnswerQuestionResponse
+{
+    public string QuestionId { get; set; } = string.Empty;
+    public bool Accepted { get; set; }
+    public string? UnlockDescription { get; set; }
+    public string? UnlockType { get; set; }
+    public string? IntelligenceRevealed { get; set; }
+    public decimal? ConfidenceAfter { get; set; }
+    public ProgressionSummary? Progression { get; set; }
+}
+
+public class ProgressionSummary
+{
+    public int TotalAnswered { get; set; }
+    public int TotalUnlocks { get; set; }
+    public int CurrentStreak { get; set; }
+}
+
+public class ProgressionResponse
+{
+    public int TotalAnswered { get; set; }
+    public int TotalUnlocks { get; set; }
+    public int CurrentStreak { get; set; }
+    public DateTime? LastAnsweredAt { get; set; }
 }

@@ -21,6 +21,7 @@ public class DashboardTests : TestContext
         Services.AddAuthorizationCore();
         Services.AddSingleton<AuthenticationStateProvider>(new FakeAuthStateProvider());
         JSInterop.Mode = JSRuntimeMode.Loose;
+        RenderComponent<MudPopoverProvider>();
     }
 
     [Fact]
@@ -274,6 +275,104 @@ public class DashboardTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("View Benchmarks", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Dashboard_WithPendingQuestions_ShowsQuestionCard()
+    {
+        _service.DashboardResult = new DashboardResponse
+        {
+            ConfidenceScore = 50,
+            KPIs = new(),
+        };
+        _service.PendingQuestionsResult = new PendingQuestionsResponse
+        {
+            CurrentConfidence = 50,
+            Questions = new List<QuestionItem>
+            {
+                new()
+                {
+                    QuestionId = "q1",
+                    Type = "ConfirmData",
+                    PromptText = "Is your revenue above $1M?",
+                    Choices = new() { "Yes", "No" },
+                    UnlockDescription = "Unlocks revenue benchmark",
+                    Priority = 0.9m,
+                },
+            },
+        };
+
+        var cut = RenderComponent<Dashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Quick question to unlock insights", cut.Markup);
+            Assert.Contains("Is your revenue above $1M?", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Dashboard_NoPendingQuestions_NoQuestionCard()
+    {
+        _service.DashboardResult = new DashboardResponse
+        {
+            ConfidenceScore = 70,
+            KPIs = new(),
+        };
+        _service.PendingQuestionsResult = new PendingQuestionsResponse
+        {
+            CurrentConfidence = 70,
+            Questions = new(),
+        };
+
+        var cut = RenderComponent<Dashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("Quick question to unlock insights", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Dashboard_WithProgression_ShowsProgressionIndicator()
+    {
+        _service.DashboardResult = new DashboardResponse
+        {
+            ConfidenceScore = 65,
+            KPIs = new(),
+        };
+        _service.ProgressionResult = new ProgressionResponse
+        {
+            TotalAnswered = 5,
+            TotalUnlocks = 3,
+            CurrentStreak = 2,
+        };
+
+        var cut = RenderComponent<Dashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("3 insights unlocked", cut.Markup);
+            Assert.Contains("2 day streak", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Dashboard_NoProgression_HidesProgressionIndicator()
+    {
+        _service.DashboardResult = new DashboardResponse
+        {
+            ConfidenceScore = 65,
+            KPIs = new(),
+        };
+        // No progression result set — stays null
+
+        var cut = RenderComponent<Dashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("insights unlocked", cut.Markup);
         });
     }
 

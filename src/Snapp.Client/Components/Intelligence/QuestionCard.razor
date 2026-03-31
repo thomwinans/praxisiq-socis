@@ -1,0 +1,111 @@
+@using MudBlazor
+@using Snapp.Client.Services
+
+<MudCard Elevation="2" Class="mb-4" Style="border-left: 4px solid var(--mud-palette-warning);">
+    <MudCardHeader>
+        <CardHeaderAvatar>
+            <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Color="Color.Warning" />
+        </CardHeaderAvatar>
+        <CardHeaderContent>
+            <MudText Typo="Typo.subtitle1">Quick question to unlock insights</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (_answered)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-2">
+                @(_unlockDescription ?? "Answer recorded — insight unlocked!")
+            </MudAlert>
+        }
+        else
+        {
+            <MudText Typo="Typo.body1" Class="mb-4">@Question.PromptText</MudText>
+
+            @if (IsBooleanQuestion)
+            {
+                <MudButtonGroup OverrideStyles="false" Class="mb-2">
+                    <MudButton Variant="@(_selectedAnswer == "Yes" ? Variant.Filled : Variant.Outlined)"
+                               Color="Color.Primary"
+                               OnClick="@(() => _selectedAnswer = "Yes")">Yes</MudButton>
+                    <MudButton Variant="@(_selectedAnswer == "No" ? Variant.Filled : Variant.Outlined)"
+                               Color="Color.Primary"
+                               OnClick="@(() => _selectedAnswer = "No")">No</MudButton>
+                </MudButtonGroup>
+            }
+            else if (Question.Choices.Any())
+            {
+                <MudRadioGroup T="string" @bind-Value="_selectedAnswer">
+                    @foreach (var choice in Question.Choices)
+                    {
+                        <MudRadio T="string" Value="@choice" Color="Color.Primary">@choice</MudRadio>
+                    }
+                </MudRadioGroup>
+            }
+        }
+    </MudCardContent>
+    @if (!_answered)
+    {
+        <MudCardActions>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="@(string.IsNullOrEmpty(_selectedAnswer) || _submitting)"
+                       OnClick="SubmitAnswer">
+                @if (_submitting)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Answer
+            </MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default"
+                       Disabled="_submitting"
+                       OnClick="SkipQuestion">Skip</MudButton>
+        </MudCardActions>
+    }
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired]
+    public QuestionItem Question { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<AnswerQuestionResponse?> OnAnswered { get; set; }
+
+    [Parameter]
+    public EventCallback OnSkipped { get; set; }
+
+    private string? _selectedAnswer;
+    private bool _submitting;
+    private bool _answered;
+    private string? _unlockDescription;
+
+    private bool IsBooleanQuestion =>
+        Question.Type == "ConfirmData" || Question.Type == "ConfirmRelationship"
+        || (Question.Choices.Count == 2 && Question.Choices.Contains("Yes") && Question.Choices.Contains("No"));
+
+    [Inject] private IIntelligenceService IntelligenceService { get; set; } = default!;
+
+    private async Task SubmitAnswer()
+    {
+        if (string.IsNullOrEmpty(_selectedAnswer)) return;
+
+        _submitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await IntelligenceService.AnswerQuestionAsync(Question.QuestionId, _selectedAnswer);
+            _unlockDescription = result?.UnlockDescription ?? Question.UnlockDescription;
+            _answered = true;
+            await OnAnswered.InvokeAsync(result);
+        }
+        finally
+        {
+            _submitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SkipQuestion()
+    {
+        await OnSkipped.InvokeAsync();
+    }
+}

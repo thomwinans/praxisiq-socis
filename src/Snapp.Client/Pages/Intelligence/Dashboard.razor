@@ -7,7 +7,15 @@
 @inject IIntelligenceService IntelligenceService
 @inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4" Class="mb-4">Practice Intelligence</MudText>
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Practice Intelligence</MudText>
+    @if (_progression is not null && _progression.TotalAnswered > 0)
+    {
+        <ProgressionIndicator TotalUnlocks="@_progression.TotalUnlocks"
+                              TotalAnswered="@_progression.TotalAnswered"
+                              CurrentStreak="@_progression.CurrentStreak" />
+    }
+</MudStack>
 
 @if (_loading)
 {
@@ -51,6 +59,21 @@ else if (_dashboard is not null)
         <MudAlert Severity="Severity.Info" Class="mb-6">
             Contribute practice data to unlock your valuation estimate.
             <MudButton Variant="Variant.Text" Color="Color.Info" Href="/intelligence/contribute">Get Started</MudButton>
+        </MudAlert>
+    }
+
+    @* Question Card *@
+    @if (_currentQuestion is not null && !_allCaughtUp)
+    {
+        <QuestionCard Question="@_currentQuestion"
+                      OnAnswered="HandleQuestionAnswered"
+                      OnSkipped="HandleQuestionSkipped" />
+    }
+    else if (_allCaughtUp)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4" Dense="true">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
+            All caught up! No pending questions right now.
         </MudAlert>
     }
 
@@ -215,6 +238,11 @@ else if (_dashboard is not null)
     private DashboardResponse? _dashboard;
     private ScoreResponse? _score;
     private CareerStageResponse? _careerStage;
+    private ProgressionResponse? _progression;
+    private List<QuestionItem> _pendingQuestions = new();
+    private QuestionItem? _currentQuestion;
+    private int _questionIndex;
+    private bool _allCaughtUp;
     private bool _loading = true;
     private bool _error;
 
@@ -240,6 +268,21 @@ else if (_dashboard is not null)
             // Career stage may not exist yet — that's okay
             try { _careerStage = await IntelligenceService.GetCareerStageAsync(); } catch { }
 
+            // Load questions and progression — non-critical
+            try
+            {
+                var questionsResponse = await IntelligenceService.GetPendingQuestionsAsync();
+                if (questionsResponse?.Questions.Any() == true)
+                {
+                    _pendingQuestions = questionsResponse.Questions;
+                    _questionIndex = 0;
+                    _currentQuestion = _pendingQuestions[0];
+                }
+            }
+            catch { }
+
+            try { _progression = await IntelligenceService.GetProgressionAsync(); } catch { }
+
             if (_score?.DimensionScores.Any() == true)
             {
                 _dimensionLabels = _score.DimensionScores.Keys.ToArray();
@@ -257,6 +300,44 @@ else if (_dashboard is not null)
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task HandleQuestionAnswered(AnswerQuestionResponse? result)
+    {
+        // Update progression from answer response
+        if (result?.Progression is not null)
+        {
+            _progression = new ProgressionResponse
+            {
+                TotalAnswered = result.Progression.TotalAnswered,
+                TotalUnlocks = result.Progression.TotalUnlocks,
+                CurrentStreak = result.Progression.CurrentStreak,
+            };
+        }
+
+        // Brief delay to show success feedback before advancing
+        await Task.Delay(1500);
+        AdvanceToNextQuestion();
+    }
+
+    private void HandleQuestionSkipped()
+    {
+        AdvanceToNextQuestion();
+    }
+
+    private void AdvanceToNextQuestion()
+    {
+        _questionIndex++;
+        if (_questionIndex < _pendingQuestions.Count)
+        {
+            _currentQuestion = _pendingQuestions[_questionIndex];
+        }
+        else
+        {
+            _currentQuestion = null;
+            _allCaughtUp = true;
+        }
+        StateHasChanged();
     }
 
     private static string FormatCurrency(decimal value)
