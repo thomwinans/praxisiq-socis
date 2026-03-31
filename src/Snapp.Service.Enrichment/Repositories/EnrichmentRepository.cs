@@ -212,17 +212,31 @@ public class EnrichmentRepository
 
     public async Task<int> CountSignalsByPrefixAsync(string pkPrefix)
     {
-        var response = await _db.ScanAsync(new ScanRequest
+        var total = 0;
+        Dictionary<string, AttributeValue>? lastKey = null;
+
+        do
         {
-            TableName = TableNames.Intelligence,
-            FilterExpression = "begins_with(PK, :prefix)",
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            var request = new ScanRequest
             {
-                [":prefix"] = new(pkPrefix),
-            },
-            Select = Select.COUNT,
-        });
-        return response.Count;
+                TableName = TableNames.Intelligence,
+                FilterExpression = "begins_with(PK, :prefix)",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":prefix"] = new(pkPrefix),
+                },
+                Select = Select.COUNT,
+            };
+
+            if (lastKey != null)
+                request.ExclusiveStartKey = lastKey;
+
+            var response = await _db.ScanAsync(request);
+            total += response.Count;
+            lastKey = response.LastEvaluatedKey;
+        } while (lastKey != null && lastKey.Count > 0);
+
+        return total;
     }
 
     public async Task<Dictionary<string, AttributeValue>?> GetItemAsync(string pk, string sk)
