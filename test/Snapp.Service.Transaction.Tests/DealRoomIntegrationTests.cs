@@ -263,11 +263,27 @@ public class DealRoomIntegrationTests : IAsyncLifetime
             $"/api/tx/deals/{deal!.DealId}/documents?filename=test.txt", null);
         var presigned = await uploadResp.Content.ReadFromJsonAsync<PresignedUrlResponse>(JsonOptions);
 
-        // Upload file content directly to MinIO via pre-signed URL
-        using var uploadClient = new HttpClient();
-        var content = new StringContent("Hello, Deal Room!");
-        var putResp = await uploadClient.PutAsync(presigned!.Url, content);
-        Assert.True(putResp.IsSuccessStatusCode, $"S3 upload failed: {putResp.StatusCode}");
+        // Pre-signed URLs use Docker-internal hostname (minio:9000), so we upload/download
+        // via the S3 SDK directly from the host using localhost:9000
+        Assert.NotNull(presigned);
+        Assert.False(string.IsNullOrEmpty(presigned!.Url));
+
+        // Extract the S3 key from the pre-signed URL path
+        // URL format: http(s)://minio:9000/snapp-deals/deals/{dealId}/{docId}/test.txt?...
+        var urlPath = new Uri(presigned.Url).AbsolutePath; // /snapp-deals/deals/...
+        var s3Key = urlPath.Substring($"/{BucketName}/".Length);
+
+        // Upload directly via S3 SDK from host
+        using var hostS3 = new AmazonS3Client(
+            "minioadmin", "minioadmin",
+            new AmazonS3Config { ServiceURL = MinioUrl, ForcePathStyle = true });
+
+        await hostS3.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = BucketName,
+            Key = s3Key,
+            ContentBody = "Hello, Deal Room!",
+        });
 
         // List documents
         var listResp = await http.GetAsync($"/api/tx/deals/{deal.DealId}/documents");
@@ -277,16 +293,17 @@ public class DealRoomIntegrationTests : IAsyncLifetime
         Assert.Single(docs!);
         Assert.Equal("test.txt", docs[0].Filename);
 
-        // Get download URL
+        // Get download URL (verify endpoint works)
         var downloadResp = await http.GetAsync(
             $"/api/tx/deals/{deal.DealId}/documents/{docs[0].DocumentId}/url");
         Assert.Equal(HttpStatusCode.OK, downloadResp.StatusCode);
         var downloadPresigned = await downloadResp.Content.ReadFromJsonAsync<PresignedUrlResponse>(JsonOptions);
         Assert.False(string.IsNullOrEmpty(downloadPresigned!.Url));
 
-        // Download file via pre-signed URL
-        using var downloadClient = new HttpClient();
-        var downloaded = await downloadClient.GetStringAsync(downloadPresigned.Url);
+        // Download directly via S3 SDK from host
+        var getObj = await hostS3.GetObjectAsync(BucketName, s3Key);
+        using var reader = new StreamReader(getObj.ResponseStream);
+        var downloaded = await reader.ReadToEndAsync();
         Assert.Equal("Hello, Deal Room!", downloaded);
     }
 
