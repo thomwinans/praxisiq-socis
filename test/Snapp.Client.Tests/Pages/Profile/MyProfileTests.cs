@@ -20,6 +20,7 @@ public class MyProfileTests : TestContext
     {
         Services.AddSingleton<IUserService>(_userService);
         Services.AddSingleton<IReputationService>(new MockReputationService());
+        Services.AddSingleton<ILinkedInService>(new MockLinkedInService());
         Services.AddSingleton<IAuthService>(new FakeAuthService());
         Services.AddScoped<SnappAuthStateProvider>();
         Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<SnappAuthStateProvider>());

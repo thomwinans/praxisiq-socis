@@ -73,13 +73,9 @@ else if (_profile is not null)
 
                 <Snapp.Client.Components.ProfileCompleteness Value="@_profile.ProfileCompleteness" />
 
-                @if (!string.IsNullOrEmpty(_profile.LinkedInProfileUrl))
-                {
-                    <MudText Typo="Typo.body2" Class="mt-2">
-                        <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small" Class="mr-1" />
-                        LinkedIn connected
-                    </MudText>
-                }
+                <div class="mt-2">
+                    <Snapp.Client.Components.LinkedIn.LinkButton OnStatusChanged="LoadProfileAsync" />
+                </div>
             </MudCardContent>
             <MudCardActions>
                 <MudButton Variant="Variant.Filled"

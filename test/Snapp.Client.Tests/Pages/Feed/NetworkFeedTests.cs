@@ -21,6 +21,7 @@ public class NetworkFeedTests : TestContext
     {
         Services.AddSingleton<IFeedService>(_feedService);
         Services.AddSingleton<INetworkService>(_networkService);
+        Services.AddSingleton<ILinkedInService>(new MockLinkedInService());
         Services.AddMudServices();
         JSInterop.Mode = JSRuntimeMode.Loose;
         RenderComponent<MudPopoverProvider>();

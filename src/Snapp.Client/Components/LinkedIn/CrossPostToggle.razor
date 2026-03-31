@@ -1,0 +1,44 @@
+@inject ILinkedInService LinkedInService
+
+@if (_isLinked)
+{
+    <div class="d-flex align-center gap-2">
+        <MudIcon Icon="@Icons.Material.Filled.Link"
+                 Size="Size.Small"
+                 Style="color: #0A66C2;" />
+        <MudSwitch T="bool"
+                   @bind-Value="Enabled"
+                   @bind-Value:after="OnToggled"
+                   Label="Also share on LinkedIn"
+                   Color="Color.Primary"
+                   Size="Size.Small" />
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool Enabled { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> EnabledChanged { get; set; }
+
+    private bool _isLinked;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var status = await LinkedInService.GetStatusAsync();
+            _isLinked = status.IsLinked;
+        }
+        catch
+        {
+            _isLinked = false;
+        }
+    }
+
+    private async Task OnToggled()
+    {
+        await EnabledChanged.InvokeAsync(Enabled);
+    }
+}

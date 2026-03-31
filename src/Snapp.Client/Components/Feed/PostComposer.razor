@@ -1,4 +1,5 @@
 @inject ISnackbar Snackbar
+@inject ILinkedInService LinkedInService
 
 <MudCard Class="mb-4" Elevation="1">
     <MudCardContent>
@@ -14,15 +15,18 @@
                       Variant="Variant.Outlined"
                       Disabled="_submitting" />
         <div class="d-flex align-center justify-space-between mt-2">
-            <MudSelect T="PostType"
-                       @bind-Value="_postType"
-                       Label="Post Type"
-                       Variant="Variant.Outlined"
-                       Dense="true"
-                       Style="max-width:180px;">
-                <MudSelectItem T="PostType" Value="PostType.Text">Text</MudSelectItem>
-                <MudSelectItem T="PostType" Value="PostType.Milestone">Milestone</MudSelectItem>
-            </MudSelect>
+            <div class="d-flex align-center gap-4">
+                <MudSelect T="PostType"
+                           @bind-Value="_postType"
+                           Label="Post Type"
+                           Variant="Variant.Outlined"
+                           Dense="true"
+                           Style="max-width:180px;">
+                    <MudSelectItem T="PostType" Value="PostType.Text">Text</MudSelectItem>
+                    <MudSelectItem T="PostType" Value="PostType.Milestone">Milestone</MudSelectItem>
+                </MudSelect>
+                <Snapp.Client.Components.LinkedIn.CrossPostToggle @bind-Enabled="_crossPostLinkedIn" />
+            </div>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        OnClick="SubmitAsync"
@@ -42,11 +46,15 @@
     public string NetworkName { get; set; } = string.Empty;
 
     [Parameter]
+    public string NetworkId { get; set; } = string.Empty;
+
+    [Parameter]
     public EventCallback<(string Content, PostType PostType)> OnPostSubmitted { get; set; }
 
     private string _content = string.Empty;
     private PostType _postType = PostType.Text;
     private bool _submitting;
+    private bool _crossPostLinkedIn;
 
     private async Task SubmitAsync()
     {
@@ -55,14 +63,41 @@
         _submitting = true;
         try
         {
-            await OnPostSubmitted.InvokeAsync((_content.Trim(), _postType));
+            var trimmedContent = _content.Trim();
+            await OnPostSubmitted.InvokeAsync((trimmedContent, _postType));
+
+            if (_crossPostLinkedIn)
+            {
+                await CrossPostToLinkedInAsync(trimmedContent);
+            }
+
             _content = string.Empty;
             _postType = PostType.Text;
+            _crossPostLinkedIn = false;
         }
         catch
         {
             Snackbar.Add("Failed to create post.", Severity.Error);
         }
         _submitting = false;
+    }
+
+    private async Task CrossPostToLinkedInAsync(string content)
+    {
+        try
+        {
+            var request = new Snapp.Shared.DTOs.LinkedIn.LinkedInShareRequest
+            {
+                Content = content,
+                NetworkId = NetworkId,
+                SourceType = _postType == PostType.Milestone ? "milestone" : "post",
+            };
+            await LinkedInService.ShareAsync(request);
+            Snackbar.Add("Shared to LinkedIn!", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Post created, but LinkedIn share failed.", Severity.Warning);
+        }
     }
 }

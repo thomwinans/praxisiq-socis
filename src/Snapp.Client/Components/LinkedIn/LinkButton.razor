@@ -1,0 +1,125 @@
+@inject ILinkedInService LinkedInService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+@if (_loading)
+{
+    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="200px" Height="36px" />
+}
+else if (_status?.IsLinked == true)
+{
+    <div class="d-flex align-center gap-2">
+        <MudChip T="string"
+                 Color="Color.Success"
+                 Variant="Variant.Filled"
+                 Size="Size.Small"
+                 Icon="@Icons.Material.Filled.Check">
+            LinkedIn Connected
+        </MudChip>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Error"
+                   Size="Size.Small"
+                   OnClick="UnlinkAsync"
+                   Disabled="_unlinking">
+            @if (_unlinking)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+            }
+            Unlink
+        </MudButton>
+    </div>
+}
+else
+{
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Link"
+               OnClick="ConnectAsync"
+               Disabled="_connecting"
+               Style="background-color: #0A66C2;">
+        @if (_connecting)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+        }
+        Connect LinkedIn
+    </MudButton>
+}
+
+@code {
+    [Parameter]
+    public EventCallback OnStatusChanged { get; set; }
+
+    private LinkedInStatusResponse? _status;
+    private bool _loading = true;
+    private bool _connecting;
+    private bool _unlinking;
+
+    public bool IsLinked => _status?.IsLinked == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatusAsync();
+    }
+
+    private async Task LoadStatusAsync()
+    {
+        _loading = true;
+        try
+        {
+            _status = await LinkedInService.GetStatusAsync();
+        }
+        catch
+        {
+            _status = new LinkedInStatusResponse { IsLinked = false };
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ConnectAsync()
+    {
+        _connecting = true;
+        try
+        {
+            var result = await LinkedInService.GetAuthUrlAsync();
+            if (!string.IsNullOrEmpty(result.AuthorizationUrl))
+            {
+                Navigation.NavigateTo(result.AuthorizationUrl, forceLoad: true);
+            }
+            else
+            {
+                Snackbar.Add("Could not get LinkedIn authorization URL.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Failed to connect to LinkedIn. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _connecting = false;
+        }
+    }
+
+    private async Task UnlinkAsync()
+    {
+        _unlinking = true;
+        try
+        {
+            await LinkedInService.UnlinkAsync();
+            _status = new LinkedInStatusResponse { IsLinked = false };
+            Snackbar.Add("LinkedIn account disconnected.", Severity.Normal);
+            await OnStatusChanged.InvokeAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Failed to unlink LinkedIn. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _unlinking = false;
+        }
+    }
+}

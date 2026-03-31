@@ -6,6 +6,7 @@ using MudBlazor.Services;
 using Snapp.Client.Pages.Profile;
 using Snapp.Client.Services;
 using Snapp.Client.State;
+using Snapp.Client.Tests.Mocks;
 using Snapp.Shared.DTOs.User;
 using Xunit;
 
@@ -19,6 +20,7 @@ public class OnboardingTests : TestContext
     {
         Services.AddSingleton<IUserService>(_userService);
         Services.AddSingleton<IAuthService>(new FakeAuthService());
+        Services.AddSingleton<ILinkedInService>(new MockLinkedInService());
         Services.AddScoped<SnappAuthStateProvider>();
         Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<SnappAuthStateProvider>());
         Services.AddAuthorizationCore();
