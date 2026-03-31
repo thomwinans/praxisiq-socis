@@ -1115,24 +1115,33 @@ public class IntelligenceRepository : IIntelligenceRepository
     public async Task<List<Endpoints.CompensationContribution>> GetCompensationContributionsForRoleAsync(
         string role, string? market, string? sizeBand)
     {
-        // Scan for all contributions for this role
-        // In production, this would use GSI1 (GSI1PK = COMPROLE#{role})
-        var response = await _db.ScanAsync(new ScanRequest
-        {
-            TableName = TableNames.Intelligence,
-            FilterExpression = "begins_with(PK, :compPrefix) AND #r = :role",
-            ExpressionAttributeNames = new Dictionary<string, string>
-            {
-                ["#r"] = "Role",
-            },
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-            {
-                [":compPrefix"] = new("COMP#"),
-                [":role"] = new(role),
-            },
-        });
+        // Paginated scan for all contributions for this role
+        var items = new List<Dictionary<string, AttributeValue>>();
+        Dictionary<string, AttributeValue>? lastKey = null;
 
-        return response.Items.Select(item => new Endpoints.CompensationContribution
+        do
+        {
+            var response = await _db.ScanAsync(new ScanRequest
+            {
+                TableName = TableNames.Intelligence,
+                FilterExpression = "begins_with(PK, :compPrefix) AND #r = :role",
+                ExpressionAttributeNames = new Dictionary<string, string>
+                {
+                    ["#r"] = "Role",
+                },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":compPrefix"] = new("COMP#"),
+                    [":role"] = new(role),
+                },
+                ExclusiveStartKey = lastKey,
+            });
+
+            items.AddRange(response.Items);
+            lastKey = response.LastEvaluatedKey?.Count > 0 ? response.LastEvaluatedKey : null;
+        } while (lastKey is not null);
+
+        return items.Select(item => new Endpoints.CompensationContribution
         {
             Role = item["Role"].S,
             CompensationType = item["CompensationType"].S,

@@ -31,14 +31,15 @@ public class VerticalConfigTests
     }
 
     [Fact]
-    public void DentalConfig_Has_Six_Dimensions()
+    public void DentalConfig_Has_Seven_Dimensions()
     {
         var config = LoadDentalConfig();
 
-        config.Dimensions.Should().HaveCount(6);
+        config.Dimensions.Should().HaveCount(7);
         config.Dimensions.Select(d => d.Name).Should().BeEquivalentTo(
             "FinancialHealth", "OwnerRisk", "Operations",
-            "ClientBase", "RevenueDiversification", "MarketPosition");
+            "ClientBase", "RevenueDiversification", "MarketPosition",
+            "Workforce");
     }
 
     [Fact]
@@ -55,13 +56,27 @@ public class VerticalConfigTests
     {
         var config = LoadDentalConfig();
 
+        // Inverse-scored dimensions where lower values are better (e.g., workforce pressure)
+        var inverseDimensions = new HashSet<string> { "Workforce" };
+
         foreach (var dim in config.Dimensions)
         {
             dim.Thresholds.Should().NotBeNull($"dimension {dim.Name} should have thresholds");
-            dim.Thresholds.Strong.Should().BeGreaterThan(dim.Thresholds.Acceptable,
-                $"strong > acceptable for {dim.Name}");
-            dim.Thresholds.Acceptable.Should().BeGreaterThan(dim.Thresholds.Weak,
-                $"acceptable > weak for {dim.Name}");
+
+            if (inverseDimensions.Contains(dim.Name))
+            {
+                dim.Thresholds.Strong.Should().BeLessThan(dim.Thresholds.Acceptable,
+                    $"strong < acceptable for inverse-scored {dim.Name}");
+                dim.Thresholds.Acceptable.Should().BeLessThan(dim.Thresholds.Weak,
+                    $"acceptable < weak for inverse-scored {dim.Name}");
+            }
+            else
+            {
+                dim.Thresholds.Strong.Should().BeGreaterThan(dim.Thresholds.Acceptable,
+                    $"strong > acceptable for {dim.Name}");
+                dim.Thresholds.Acceptable.Should().BeGreaterThan(dim.Thresholds.Weak,
+                    $"acceptable > weak for {dim.Name}");
+            }
         }
     }
 
@@ -77,14 +92,15 @@ public class VerticalConfigTests
     }
 
     [Fact]
-    public void DentalConfig_Has_Eight_ContributionCategories()
+    public void DentalConfig_Has_Nine_ContributionCategories()
     {
         var config = LoadDentalConfig();
 
-        config.ContributionCategories.Should().HaveCount(8);
+        config.ContributionCategories.Should().HaveCount(9);
         config.ContributionCategories.Select(c => c.Category).Should().BeEquivalentTo(
             "Revenue", "StaffCount", "Utilization", "ClientVolume",
-            "RevenueMix", "OwnerProduction", "EquipmentAge", "FacilityType");
+            "RevenueMix", "OwnerProduction", "EquipmentAge", "FacilityType",
+            "WorkforceSignals");
     }
 
     [Fact]
