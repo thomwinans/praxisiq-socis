@@ -15,6 +15,19 @@ public class CareerStageClassifier
 
     public CareerStageResult Classify(CareerStageInput input)
     {
+        // Incorporate license tenure: if license tenure is available, use the
+        // maximum of explicit tenure and license-derived tenure as the effective
+        // tenure for classification. License issue dates are an authoritative
+        // signal for how long a provider has been practicing.
+        var effectiveInput = input;
+        if (input.LicenseTenureYears > 0)
+        {
+            effectiveInput = input with
+            {
+                TenureYears = Math.Max(input.TenureYears, input.LicenseTenureYears),
+            };
+        }
+
         var rules = _config.CareerStageRules
             .OrderBy(r => r.Priority)
             .ToList();
@@ -25,7 +38,7 @@ public class CareerStageClassifier
 
         foreach (var rule in rules)
         {
-            var (matches, signals) = EvaluateRule(rule, input);
+            var (matches, signals) = EvaluateRule(rule, effectiveInput);
             if (matches)
             {
                 matchedStage = rule.Stage;
@@ -38,6 +51,10 @@ public class CareerStageClassifier
         // If no rule matched, default to TrainingEntry
         if (triggerSignals.Count == 0)
             triggerSignals.Add("default_classification");
+
+        // Record license tenure as a trigger signal when it influenced classification
+        if (input.LicenseTenureYears > 0 && input.LicenseTenureYears > input.TenureYears)
+            triggerSignals.Add($"licenseTenure={input.LicenseTenureYears:F1}y");
 
         var riskFlags = ComputeRiskFlags(matchedStage, input);
         var confidence = ComputeConfidence(input);
@@ -199,7 +216,7 @@ public class CareerStageClassifier
     private static string ComputeConfidence(CareerStageInput input)
     {
         int signalCount = 0;
-        int totalSignals = 8; // tenure, coLocation, production, entity, providers, locations, ownerProd, ceHours
+        int totalSignals = 9; // tenure, coLocation, production, entity, providers, locations, ownerProd, ceHours, licenseTenure
 
         if (input.TenureYears > 0) signalCount++;
         if (input.CoLocationCount >= 0) signalCount++; // 0 is valid (not co-located)
@@ -209,6 +226,7 @@ public class CareerStageClassifier
         if (input.LocationCount > 0) signalCount++;
         if (input.OwnerProductionPct > 0) signalCount++;
         if (input.CeHoursRecent >= 0) signalCount++;
+        if (input.LicenseTenureYears > 0) signalCount++;
 
         var ratio = (decimal)signalCount / totalSignals;
         return ratio switch
@@ -220,7 +238,7 @@ public class CareerStageClassifier
     }
 }
 
-public class CareerStageInput
+public record CareerStageInput
 {
     public decimal TenureYears { get; set; }
     public int CoLocationCount { get; set; }
@@ -233,6 +251,7 @@ public class CareerStageInput
     public bool HasEntityFormation { get; set; }
     public decimal CeHoursRecent { get; set; }
     public decimal ReputationScore { get; set; }
+    public decimal LicenseTenureYears { get; set; }
 }
 
 public class CareerStageResult

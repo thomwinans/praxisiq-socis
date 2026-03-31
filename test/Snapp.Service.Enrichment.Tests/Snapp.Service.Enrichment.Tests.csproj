@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Snapp.Service.Enrichment/Snapp.Service.Enrichment.csproj" />
+    <ProjectReference Include="../../src/Snapp.Service.Intelligence/Snapp.Service.Intelligence.csproj" />
     <ProjectReference Include="../Snapp.TestHelpers/Snapp.TestHelpers.csproj" />
   </ItemGroup>
 

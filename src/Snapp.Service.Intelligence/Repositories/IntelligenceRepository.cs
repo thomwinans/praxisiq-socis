@@ -446,6 +446,35 @@ public class IntelligenceRepository : IIntelligenceRepository
         }
     }
 
+    // ── License Tenure Lookup ────────────────────────────────────
+
+    /// <summary>
+    /// Queries LICENSE# signals for a provider NPI and returns the maximum
+    /// tenure (years from license issue date). Returns 0 if no license signals found.
+    /// </summary>
+    public async Task<decimal> GetLicenseTenureByNpiAsync(string npi)
+    {
+        var response = await _db.QueryAsync(new QueryRequest
+        {
+            TableName = TableNames.Intelligence,
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new($"{KeyPrefixes.Signal}{npi}"),
+                [":prefix"] = new("LICENSE#"),
+            },
+            ProjectionExpression = "TenureYearsFromLicense",
+        });
+
+        if (response.Items.Count == 0) return 0m;
+
+        return response.Items
+            .Where(item => item.TryGetValue("TenureYearsFromLicense", out _))
+            .Select(item => decimal.Parse(item["TenureYearsFromLicense"].N))
+            .DefaultIfEmpty(0m)
+            .Max();
+    }
+
     // ── Market Intelligence ─────────────────────────────────────
 
     public async Task<Endpoints.MarketProfileResponse?> GetMarketProfileAsync(string geoId)

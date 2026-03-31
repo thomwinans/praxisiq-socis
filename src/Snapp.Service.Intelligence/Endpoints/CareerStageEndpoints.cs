@@ -48,6 +48,15 @@ public static class CareerStageEndpoints
         if (body.TenureYears < 0)
             return EndpointHelpers.BadRequest(traceId, ErrorCodes.ValidationFailed, "TenureYears must be non-negative.");
 
+        // If NPI provided but no explicit license tenure, auto-lookup from enrichment signals
+        var licenseTenure = body.LicenseTenureYears;
+        if (licenseTenure == 0 && !string.IsNullOrEmpty(body.Npi))
+        {
+            licenseTenure = await repo.GetLicenseTenureByNpiAsync(body.Npi);
+            if (licenseTenure > 0)
+                logger.LogInformation("Auto-resolved license tenure={Tenure}y for NPI={Npi}", licenseTenure, body.Npi);
+        }
+
         var input = new CareerStageInput
         {
             TenureYears = body.TenureYears,
@@ -61,6 +70,7 @@ public static class CareerStageEndpoints
             HasEntityFormation = body.HasEntityFormation,
             CeHoursRecent = body.CeHoursRecent,
             ReputationScore = body.ReputationScore,
+            LicenseTenureYears = licenseTenure,
         };
 
         var result = classifier.Classify(input);
@@ -135,6 +145,8 @@ public class CareerStageRequest
     public bool HasEntityFormation { get; set; }
     public decimal CeHoursRecent { get; set; }
     public decimal ReputationScore { get; set; }
+    public decimal LicenseTenureYears { get; set; }
+    public string? Npi { get; set; }
 }
 
 public class CareerStageResponse
