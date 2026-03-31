@@ -1,4 +1,123 @@
 @page "/deals"
 @attribute [Authorize]
+@inject IDealRoomService DealRoomService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
-<MudText Typo="Typo.h4">Deal Rooms</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4">Deal Rooms</MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialogAsync">
+        Create Deal Room
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+}
+else if (_error)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        Failed to load deal rooms.
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else if (!_dealRooms.Any())
+{
+    <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center">
+        <MudIcon Icon="@Icons.Material.Filled.Handshake" Size="Size.Large" Color="Color.Default" />
+        <MudText Typo="Typo.body1" Class="mt-2">No deal rooms yet.</MudText>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   Class="mt-4"
+                   OnClick="OpenCreateDialogAsync">
+            Create Your First Deal Room
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudTable Items="@_dealRooms"
+              Hover="true"
+              Breakpoint="Breakpoint.Sm"
+              Loading="@_loading"
+              RowClassFunc="@((_, _) => "cursor-pointer")"
+              OnRowClick="@(args => OnRowClick(args))" T="DealRoomResponse">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Participants</MudTh>
+            <MudTh>Documents</MudTh>
+            <MudTh>Created</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Status">
+                <MudChip T="string"
+                         Color="@GetStatusColor(context.Status)"
+                         Size="Size.Small">
+                    @context.Status
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Participants">@context.ParticipantCount</MudTd>
+            <MudTd DataLabel="Documents">@context.DocumentCount</MudTd>
+            <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<DealRoomResponse> _dealRooms = new();
+    private bool _loading = true;
+    private bool _error;
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        try
+        {
+            var response = await DealRoomService.GetDealRoomsAsync();
+            _dealRooms = response.DealRooms;
+        }
+        catch
+        {
+            _error = true;
+        }
+        _loading = false;
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var dialog = await DialogService.ShowAsync<CreateDealRoomDialog>(
+            "New Deal Room",
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            Snackbar.Add("Deal room created!", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<DealRoomResponse> args)
+    {
+        Navigation.NavigateTo($"/deals/{args.Item!.DealId}");
+    }
+
+    private static Color GetStatusColor(DealStatus status) => status switch
+    {
+        DealStatus.Active => Color.Success,
+        DealStatus.Closed => Color.Default,
+        DealStatus.Archived => Color.Warning,
+        _ => Color.Default
+    };
+}

@@ -41,6 +41,7 @@ builder.Services.AddScoped<IIntelligenceService, IntelligenceService>();
 builder.Services.AddScoped<IReferralService, ReferralService>();
 builder.Services.AddScoped<IReputationService, ReputationService>();
 builder.Services.AddScoped<ILinkedInService, LinkedInService>();
+builder.Services.AddScoped<IDealRoomService, DealRoomService>();
 
 // MudBlazor
 builder.Services.AddMudServices();

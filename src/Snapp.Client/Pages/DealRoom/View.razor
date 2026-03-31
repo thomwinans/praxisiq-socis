@@ -1,9 +1,361 @@
 @page "/deals/{DealId}"
 @attribute [Authorize]
+@inject IDealRoomService DealRoomService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
-<MudText Typo="Typo.h4">Deal Room</MudText>
+<MudButton Variant="Variant.Text"
+           StartIcon="@Icons.Material.Filled.ArrowBack"
+           OnClick="@(() => Navigation.NavigateTo("/deals"))"
+           Class="mb-2">
+    Back to Deal Rooms
+</MudButton>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" Class="d-block mx-auto my-8" />
+}
+else if (_deal is null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        Deal room not found or access denied.
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="LoadAsync">Retry</MudButton>
+    </MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.h4">@_deal.Name</MudText>
+            <MudChip T="string"
+                     Color="@GetStatusColor(_deal.Status)"
+                     Size="Size.Small">
+                @_deal.Status
+            </MudChip>
+        </MudStack>
+    </MudStack>
+
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+        <MudTabPanel Text="Overview" Icon="@Icons.Material.Filled.Info">
+            <MudCard>
+                <MudCardContent>
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Deal Name</MudText>
+                            <MudText Typo="Typo.body1">@_deal.Name</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                            <MudText Typo="Typo.body1">@_deal.Status</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Participants</MudText>
+                            <MudText Typo="Typo.body1">@_deal.ParticipantCount</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Documents</MudText>
+                            <MudText Typo="Typo.body1">@_deal.DocumentCount</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Created</MudText>
+                            <MudText Typo="Typo.body1">@_deal.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Documents" Icon="@Icons.Material.Filled.Description" BadgeData="@_documents.Count" BadgeColor="Color.Primary">
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-4">
+                <MudFileUpload T="IBrowserFile"
+                               FilesChanged="UploadFileAsync"
+                               Accept="*/*">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Upload"
+                                   Disabled="@_uploading">
+                            @if (_uploading)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            }
+                            Upload Document
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+            </MudStack>
+
+            @if (!_documents.Any())
+            {
+                <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.body1" Class="mt-2">No documents uploaded yet.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable Items="@_documents" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Filename</MudTh>
+                        <MudTh>Uploaded By</MudTh>
+                        <MudTh>Date</MudTh>
+                        <MudTh>Size</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Filename">
+                            <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Size="Size.Small" Class="mr-1" />
+                            @context.Filename
+                        </MudTd>
+                        <MudTd DataLabel="Uploaded By">@context.UploadedByDisplayName</MudTd>
+                        <MudTd DataLabel="Date">@context.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</MudTd>
+                        <MudTd DataLabel="Size">@FormatFileSize(context.Size)</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudIconButton Icon="@Icons.Material.Filled.Download"
+                                           Size="Size.Small"
+                                           OnClick="@(() => DownloadDocumentAsync(context))" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Participants" Icon="@Icons.Material.Filled.People" BadgeData="@_participants.Count" BadgeColor="Color.Secondary">
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-4">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                           OnClick="OpenAddParticipantDialogAsync">
+                    Add Participant
+                </MudButton>
+            </MudStack>
+
+            @if (!_participants.Any())
+            {
+                <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.GroupOff" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.body1" Class="mt-2">No participants yet.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudList T="DealParticipantResponse">
+                    @foreach (var participant in _participants)
+                    {
+                        <MudListItem T="DealParticipantResponse" Icon="@Icons.Material.Filled.Person">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudText>@participant.DisplayName</MudText>
+                                    <MudChip T="string"
+                                             Color="@GetRoleColor(participant.Role)"
+                                             Size="Size.Small">
+                                        @participant.Role
+                                    </MudChip>
+                                </MudStack>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Joined @participant.AddedAt.ToLocalTime().ToString("MMM d, yyyy")
+                                </MudText>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Activity" Icon="@Icons.Material.Filled.History" BadgeData="@_auditLog.Count" BadgeColor="Color.Info">
+            @if (!_auditLog.Any())
+            {
+                <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.body1" Class="mt-2">No activity yet.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTimeline TimelinePosition="TimelinePosition.Start">
+                    @foreach (var entry in _auditLog)
+                    {
+                        <MudTimelineItem Color="@GetAuditColor(entry.Action)" Size="Size.Small">
+                            <ItemContent>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2">
+                                        <strong>@entry.ActorDisplayName</strong> @FormatAction(entry.Action)
+                                    </MudText>
+                                    @if (!string.IsNullOrEmpty(entry.Details))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@entry.Details</MudText>
+                                    }
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @entry.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                                    </MudText>
+                                </MudStack>
+                            </ItemContent>
+                        </MudTimelineItem>
+                    }
+                </MudTimeline>
+            }
+        </MudTabPanel>
+    </MudTabs>
+}
 
 @code {
     [Parameter]
     public string DealId { get; set; } = string.Empty;
+
+    private DealRoomResponse? _deal;
+    private List<DealDocumentResponse> _documents = new();
+    private List<DealParticipantResponse> _participants = new();
+    private List<DealAuditEntryResponse> _auditLog = new();
+    private bool _loading = true;
+    private bool _uploading;
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var dealTask = DealRoomService.GetDealRoomAsync(DealId);
+            var docsTask = DealRoomService.GetDocumentsAsync(DealId);
+            var partsTask = DealRoomService.GetParticipantsAsync(DealId);
+            var auditTask = DealRoomService.GetAuditLogAsync(DealId);
+
+            await Task.WhenAll(dealTask, docsTask, partsTask, auditTask);
+
+            _deal = dealTask.Result;
+            _documents = docsTask.Result;
+            _participants = partsTask.Result;
+            _auditLog = auditTask.Result;
+        }
+        catch
+        {
+            _deal = null;
+        }
+        _loading = false;
+    }
+
+    private async Task UploadFileAsync(IBrowserFile file)
+    {
+        _uploading = true;
+        StateHasChanged();
+        try
+        {
+            var presigned = await DealRoomService.GetUploadUrlAsync(DealId, file.Name);
+            if (presigned is null)
+            {
+                Snackbar.Add("Failed to get upload URL.", Severity.Error);
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+            using var content = new StreamContent(stream);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                file.ContentType ?? "application/octet-stream");
+
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PutAsync(presigned.Url, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"'{file.Name}' uploaded successfully.", Severity.Success);
+                _documents = await DealRoomService.GetDocumentsAsync(DealId);
+            }
+            else
+            {
+                Snackbar.Add("Upload failed.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Upload failed.", Severity.Error);
+        }
+        finally
+        {
+            _uploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadDocumentAsync(DealDocumentResponse doc)
+    {
+        var presigned = await DealRoomService.GetDownloadUrlAsync(DealId, doc.DocumentId);
+        if (presigned is not null)
+        {
+            await JS.InvokeVoidAsync("open", presigned.Url, "_blank");
+        }
+        else
+        {
+            Snackbar.Add("Failed to get download URL.", Severity.Error);
+        }
+    }
+
+    private async Task OpenAddParticipantDialogAsync()
+    {
+        var parameters = new DialogParameters<AddParticipantDialog>
+        {
+            { x => x.DealId, DealId }
+        };
+
+        var dialog = await DialogService.ShowAsync<AddParticipantDialog>(
+            "Add Participant", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            Snackbar.Add("Participant added!", Severity.Success);
+            _participants = await DealRoomService.GetParticipantsAsync(DealId);
+            _auditLog = await DealRoomService.GetAuditLogAsync(DealId);
+            StateHasChanged();
+        }
+    }
+
+    private static Color GetStatusColor(DealStatus status) => status switch
+    {
+        DealStatus.Active => Color.Success,
+        DealStatus.Closed => Color.Default,
+        DealStatus.Archived => Color.Warning,
+        _ => Color.Default
+    };
+
+    private static Color GetRoleColor(string role) => role.ToLower() switch
+    {
+        "seller" => Color.Primary,
+        "buyer" => Color.Secondary,
+        "advisor" => Color.Info,
+        _ => Color.Default
+    };
+
+    private static Color GetAuditColor(string action) => action switch
+    {
+        "deal_created" => Color.Success,
+        "participant_added" => Color.Info,
+        "participant_removed" => Color.Warning,
+        "document_uploaded" => Color.Primary,
+        _ => Color.Default
+    };
+
+    private static string FormatAction(string action) => action switch
+    {
+        "deal_created" => "created this deal room",
+        "participant_added" => "added a participant",
+        "participant_removed" => "removed a participant",
+        "document_uploaded" => "uploaded a document",
+        _ => action
+    };
+
+    private static string FormatFileSize(long bytes)
+    {
+        const long kb = 1024;
+        const long mb = kb * 1024;
+        const long gb = mb * 1024;
+        if (bytes >= gb) return $"{bytes / (double)gb:F1} GB";
+        if (bytes >= mb) return $"{bytes / (double)mb:F1} MB";
+        if (bytes >= kb) return $"{bytes / (double)kb:F1} KB";
+        return $"{bytes} B";
+    }
 }

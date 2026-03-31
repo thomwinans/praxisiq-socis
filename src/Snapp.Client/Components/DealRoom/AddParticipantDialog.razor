@@ -1,0 +1,75 @@
+@inject IDealRoomService DealRoomService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Add Participant</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField T="string"
+                          @bind-Value="_userId"
+                          Label="User ID"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="User ID is required" />
+
+            <MudSelect T="string"
+                       @bind-Value="_role"
+                       Label="Role"
+                       Variant="Variant.Outlined"
+                       Required="true"
+                       RequiredError="Role is required">
+                <MudSelectItem T="string" Value="@("seller")">Seller</MudSelectItem>
+                <MudSelectItem T="string" Value="@("buyer")">Buyer</MudSelectItem>
+                <MudSelectItem T="string" Value="@("advisor")">Advisor</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SubmitAsync"
+                   Disabled="@(!CanSubmit || _submitting)">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Add Participant
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string DealId { get; set; } = string.Empty;
+
+    private string _userId = string.Empty;
+    private string _role = string.Empty;
+    private bool _submitting;
+
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(_userId) && !string.IsNullOrWhiteSpace(_role);
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitAsync()
+    {
+        if (!CanSubmit) return;
+
+        _submitting = true;
+        var request = new AddParticipantRequest
+        {
+            UserId = _userId.Trim(),
+            Role = _role
+        };
+
+        var result = await DealRoomService.AddParticipantAsync(DealId, request);
+        if (result is not null)
+            MudDialog.Close(DialogResult.Ok(true));
+        _submitting = false;
+    }
+}
