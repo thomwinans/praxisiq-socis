@@ -42,12 +42,22 @@ public class EnrichmentIntegrationTests : IAsyncLifetime, IDisposable
             _repo,
             NullLogger<RegulatoryDataLoader>.Instance);
 
+        var fixtureListingSource = new FixtureBusinessListingSource(
+            NullLogger<FixtureBusinessListingSource>.Instance);
+
+        var businessListingLoader = new BusinessListingLoader(
+            fixtureListingSource,
+            fixtureProviderSource,
+            _repo,
+            NullLogger<BusinessListingLoader>.Instance);
+
         _processor = new EnrichmentProcessor(
             fixtureProviderSource,
             fixtureMarketSource,
             _repo,
             benchmarkLoader,
             regulatoryLoader,
+            businessListingLoader,
             NullLogger<EnrichmentProcessor>.Instance);
     }
 
@@ -77,14 +87,15 @@ public class EnrichmentIntegrationTests : IAsyncLifetime, IDisposable
     {
         await _processor.RunAsync("dental");
 
-        // Query a known provider's signal
+        // Query a known provider's signal (filter for PROVIDER# SK prefix)
         var response = await _client.QueryAsync(new QueryRequest
         {
             TableName = TableNames.Intelligence,
-            KeyConditionExpression = "PK = :pk",
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :skPrefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
                 [":pk"] = new($"{KeyPrefixes.Signal}1234567001"),
+                [":skPrefix"] = new("PROVIDER#"),
             },
         });
 
@@ -223,10 +234,11 @@ public class EnrichmentIntegrationTests : IAsyncLifetime, IDisposable
         var response = await _client.QueryAsync(new QueryRequest
         {
             TableName = TableNames.Intelligence,
-            KeyConditionExpression = "PK = :pk",
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :skPrefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
                 [":pk"] = new($"{KeyPrefixes.Signal}{npi}"),
+                [":skPrefix"] = new("PROVIDER#"),
             },
             Limit = 1,
         });

@@ -48,9 +48,21 @@ else
 // Market data source (always fixture for now)
 services.AddSingleton<IMarketSource, FixtureMarketSource>();
 
-// Benchmark & regulatory data loaders
+// Business listing source — fixture or API based on config
+var listingSource = config["Enrichment:ListingSource"] ?? "fixture";
+if (listingSource.Equals("api", StringComparison.OrdinalIgnoreCase))
+{
+    services.AddSingleton<IBusinessListingProvider, GooglePlacesClient>();
+}
+else
+{
+    services.AddSingleton<IBusinessListingProvider, FixtureBusinessListingSource>();
+}
+
+// Benchmark, regulatory, and business listing data loaders
 services.AddSingleton<BenchmarkDataLoader>();
 services.AddSingleton<RegulatoryDataLoader>();
+services.AddSingleton<BusinessListingLoader>();
 
 // Processor
 services.AddSingleton<EnrichmentProcessor>();

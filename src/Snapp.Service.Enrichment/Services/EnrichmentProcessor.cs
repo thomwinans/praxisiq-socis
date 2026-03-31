@@ -11,6 +11,7 @@ public class EnrichmentProcessor
     private readonly EnrichmentRepository _repo;
     private readonly BenchmarkDataLoader _benchmarkLoader;
     private readonly RegulatoryDataLoader _regulatoryLoader;
+    private readonly BusinessListingLoader _businessListingLoader;
     private readonly ILogger<EnrichmentProcessor> _logger;
 
     // Dental NPPES taxonomy codes
@@ -36,6 +37,7 @@ public class EnrichmentProcessor
         EnrichmentRepository repo,
         BenchmarkDataLoader benchmarkLoader,
         RegulatoryDataLoader regulatoryLoader,
+        BusinessListingLoader businessListingLoader,
         ILogger<EnrichmentProcessor> logger)
     {
         _providerSource = providerSource;
@@ -43,6 +45,7 @@ public class EnrichmentProcessor
         _repo = repo;
         _benchmarkLoader = benchmarkLoader;
         _regulatoryLoader = regulatoryLoader;
+        _businessListingLoader = businessListingLoader;
         _logger = logger;
     }
 
@@ -61,6 +64,9 @@ public class EnrichmentProcessor
 
         // Step 4: Regulatory & claims data (M7.2)
         await LoadRegulatoryDataAsync();
+
+        // Step 5: Business listing integration (M7.4)
+        await LoadBusinessListingsAsync(vertical);
     }
 
     private async Task LoadBenchmarksAsync()
@@ -73,6 +79,15 @@ public class EnrichmentProcessor
     {
         var count = await _regulatoryLoader.LoadRegulatoryDataAsync();
         _logger.LogInformation("Regulatory enrichment complete: {Count} signals loaded", count);
+    }
+
+    private async Task LoadBusinessListingsAsync(string vertical)
+    {
+        var matches = await _businessListingLoader.LoadAndMatchAsync(vertical);
+        var reputationCount = matches.Count(m => m.StrongOnlineReputation);
+        _logger.LogInformation(
+            "Business listing enrichment complete: {MatchCount} matched, {ReputationCount} with strong online reputation",
+            matches.Count, reputationCount);
     }
 
     private async Task EnrichProvidersAsync(string vertical)

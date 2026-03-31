@@ -348,6 +348,59 @@ public class EnrichmentRepository
         }
     }
 
+    public async Task SaveBusinessListingSignalsBatchAsync(List<Models.ListingMatchResult> matches)
+    {
+        var chunks = matches.Chunk(25);
+        foreach (var chunk in chunks)
+        {
+            var requests = new List<WriteRequest>();
+            foreach (var match in chunk)
+            {
+                var now = DateTime.UtcNow.ToString("O");
+                var signalId = Ulid.NewUlid().ToString();
+
+                var item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new($"{KeyPrefixes.Signal}{match.Provider.Npi}"),
+                    ["SK"] = new($"LISTING#{signalId}"),
+                    ["SignalId"] = new(signalId),
+                    ["Npi"] = new(match.Provider.Npi),
+                    ["PlaceId"] = new(match.Listing.PlaceId),
+                    ["ListingName"] = new(match.Listing.Name),
+                    ["ListingAddress"] = new(match.Listing.Address),
+                    ["ListingCity"] = new(match.Listing.City),
+                    ["ListingState"] = new(match.Listing.State),
+                    ["Rating"] = new() { N = match.Listing.Rating.ToString("F1") },
+                    ["ReviewCount"] = new() { N = match.Listing.ReviewCount.ToString() },
+                    ["MatchMethod"] = new(match.MatchMethod),
+                    ["MatchConfidence"] = new() { N = match.MatchConfidence.ToString("F2") },
+                    ["StrongOnlineReputation"] = new() { BOOL = match.StrongOnlineReputation },
+                    ["Source"] = new("google-places-fixture"),
+                    ["EnrichedAt"] = new(now),
+                    ["GSI1PK"] = new($"LISTING#{match.Listing.State}"),
+                    ["GSI1SK"] = new($"NPI#{match.Provider.Npi}"),
+                };
+
+                if (!string.IsNullOrEmpty(match.Listing.WebsiteUrl))
+                    item["WebsiteUrl"] = new(match.Listing.WebsiteUrl);
+                if (!string.IsNullOrEmpty(match.Listing.Phone))
+                    item["ListingPhone"] = new(match.Listing.Phone);
+                if (!string.IsNullOrEmpty(match.Listing.Category))
+                    item["ListingCategory"] = new(match.Listing.Category);
+
+                requests.Add(new WriteRequest { PutRequest = new PutRequest { Item = item } });
+            }
+
+            await _db.BatchWriteItemAsync(new BatchWriteItemRequest
+            {
+                RequestItems = new Dictionary<string, List<WriteRequest>>
+                {
+                    [TableNames.Intelligence] = requests,
+                },
+            });
+        }
+    }
+
     public async Task<List<Dictionary<string, AttributeValue>>> QueryByPkPrefixAsync(string pk, string skPrefix)
     {
         var response = await _db.QueryAsync(new QueryRequest

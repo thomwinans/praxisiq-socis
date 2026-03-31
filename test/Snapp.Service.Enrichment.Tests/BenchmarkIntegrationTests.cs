@@ -41,12 +41,22 @@ public class BenchmarkIntegrationTests : IAsyncLifetime, IDisposable
         var fixtureMarketSource = new FixtureMarketSource(
             NullLogger<FixtureMarketSource>.Instance);
 
+        var fixtureListingSource = new FixtureBusinessListingSource(
+            NullLogger<FixtureBusinessListingSource>.Instance);
+
+        var businessListingLoader = new BusinessListingLoader(
+            fixtureListingSource,
+            fixtureProviderSource,
+            _repo,
+            NullLogger<BusinessListingLoader>.Instance);
+
         _processor = new EnrichmentProcessor(
             fixtureProviderSource,
             fixtureMarketSource,
             _repo,
             _benchmarkLoader,
             _regulatoryLoader,
+            businessListingLoader,
             NullLogger<EnrichmentProcessor>.Instance);
     }
 
