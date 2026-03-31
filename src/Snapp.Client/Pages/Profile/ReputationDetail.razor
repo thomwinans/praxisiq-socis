@@ -1,0 +1,193 @@
+@page "/profile/{UserId}/reputation"
+@attribute [Authorize]
+@inject IReputationService ReputationService
+@inject ISnackbar Snackbar
+
+@if (_loading)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8 d-flex justify-center">
+        <MudProgressCircular Indeterminate="true" />
+    </MudContainer>
+}
+else if (_error is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Retry</MudButton>
+    </MudContainer>
+}
+else if (_reputation is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudText Typo="Typo.h5" Class="mb-4">Reputation</MudText>
+
+        <MudCard Elevation="2" Class="pa-4 mb-4">
+            <MudCardContent>
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.subtitle2">Overall Score</MudText>
+                        <MudText Typo="Typo.h4">@($"{_reputation.OverallScore:0}")</MudText>
+                    </div>
+
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mb-1">Referral Score</MudText>
+                        <MudProgressLinear Color="Color.Primary"
+                                           Value="@((double)_reputation.ReferralScore)"
+                                           Max="100"
+                                           Rounded="true"
+                                           Size="Size.Medium" />
+                    </div>
+
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mb-1">Contribution Score</MudText>
+                        <MudProgressLinear Color="Color.Secondary"
+                                           Value="@((double)_reputation.ContributionScore)"
+                                           Max="100"
+                                           Rounded="true"
+                                           Size="Size.Medium" />
+                    </div>
+
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mb-1">Attestation Score</MudText>
+                        <MudProgressLinear Color="Color.Tertiary"
+                                           Value="@((double)_reputation.AttestationScore)"
+                                           Max="100"
+                                           Rounded="true"
+                                           Size="Size.Medium" />
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+
+        @if (_historyLabels.Length > 0)
+        {
+            <MudCard Elevation="2" Class="pa-4 mb-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Score History</MudText>
+                    <MudChart ChartType="ChartType.Line"
+                              ChartSeries="@_chartSeries"
+                              XAxisLabels="@_historyLabels"
+                              Width="100%"
+                              Height="250px" />
+                </MudCardContent>
+            </MudCard>
+        }
+
+        <MudCard Elevation="2" Class="pa-4 mb-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.subtitle2">Recent Attestations</MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.PersonAdd"
+                               OnClick="RequestAttestationAsync"
+                               Disabled="_requesting">
+                        Request Attestation
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (_attestations.Count == 0)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Class="py-4">
+                        <MudIcon Icon="@Icons.Material.Filled.ThumbUp" Size="Size.Large" Color="Color.Default" />
+                        <MudText Typo="Typo.body2" Color="Color.Default">No attestations yet.</MudText>
+                    </MudStack>
+                }
+                else
+                {
+                    <MudList T="AttestationResponse">
+                        @foreach (var att in _attestations)
+                        {
+                            <MudListItem T="AttestationResponse" Icon="@Icons.Material.Filled.Verified">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2"><b>@att.FromDisplayName</b></MudText>
+                                    <MudText Typo="Typo.body2">@att.Text</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Default">
+                                        @att.CreatedAt.ToString("MMM d, yyyy")
+                                    </MudText>
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudContainer>
+}
+
+@code {
+    [Parameter]
+    public string UserId { get; set; } = string.Empty;
+
+    private ReputationResponse? _reputation;
+    private List<AttestationResponse> _attestations = new();
+    private List<ChartSeries> _chartSeries = new();
+    private string[] _historyLabels = Array.Empty<string>();
+    private bool _loading = true;
+    private bool _requesting;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var reputationTask = ReputationService.GetReputationAsync(UserId);
+            var historyTask = ReputationService.GetHistoryAsync(UserId);
+            var attestationsTask = ReputationService.GetAttestationsAsync(UserId);
+
+            await Task.WhenAll(reputationTask, historyTask, attestationsTask);
+
+            _reputation = await reputationTask;
+            var history = await historyTask;
+            var attestationList = await attestationsTask;
+
+            _attestations = attestationList.Attestations;
+
+            if (history.Points.Count > 0)
+            {
+                _historyLabels = history.Points.Select(p => p.Date.ToString("MMM d")).ToArray();
+                _chartSeries = new List<ChartSeries>
+                {
+                    new ChartSeries
+                    {
+                        Name = "Overall Score",
+                        Data = history.Points.Select(p => (double)p.OverallScore).ToArray()
+                    }
+                };
+            }
+        }
+        catch
+        {
+            _error = "Failed to load reputation data. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RequestAttestationAsync()
+    {
+        _requesting = true;
+        var success = await ReputationService.RequestAttestationAsync(UserId);
+
+        if (success)
+            Snackbar.Add("Attestation request sent!", Severity.Success);
+        else
+            Snackbar.Add("Failed to send attestation request.", Severity.Error);
+
+        _requesting = false;
+    }
+}

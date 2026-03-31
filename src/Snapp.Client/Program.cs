@@ -39,6 +39,7 @@ builder.Services.AddScoped<IFeedService, FeedService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IIntelligenceService, IntelligenceService>();
 builder.Services.AddScoped<IReferralService, ReferralService>();
+builder.Services.AddScoped<IReputationService, ReputationService>();
 
 // MudBlazor
 builder.Services.AddMudServices();

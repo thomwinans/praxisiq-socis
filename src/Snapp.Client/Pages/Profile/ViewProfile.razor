@@ -1,5 +1,6 @@
 @page "/profile/{UserId}"
 @inject IUserService UserService
+@inject IReputationService ReputationService
 
 @if (_loading)
 {
@@ -44,6 +45,21 @@ else if (_profile is not null)
                         }
                     </div>
                 </div>
+                @if (_reputation is not null)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
+                        <ReputationBadge OverallScore="@_reputation.OverallScore"
+                                         ReferralScore="@_reputation.ReferralScore"
+                                         ContributionScore="@_reputation.ContributionScore"
+                                         AttestationScore="@_reputation.AttestationScore" />
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   Href="@($"/profile/{UserId}/reputation")">
+                            View Details
+                        </MudButton>
+                    </MudStack>
+                }
             </MudCardContent>
         </MudCard>
     </MudContainer>
@@ -54,6 +70,7 @@ else if (_profile is not null)
     public string UserId { get; set; } = string.Empty;
 
     private Snapp.Shared.DTOs.User.ProfileResponse? _profile;
+    private ReputationResponse? _reputation;
     private bool _loading = true;
     private string? _error;
 
@@ -70,6 +87,8 @@ else if (_profile is not null)
         try
         {
             _profile = await UserService.GetProfileAsync(UserId);
+            try { _reputation = await ReputationService.GetReputationAsync(UserId); }
+            catch { /* Reputation is optional */ }
         }
         catch
         {

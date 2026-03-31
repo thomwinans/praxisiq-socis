@@ -1,0 +1,38 @@
+@* Compact reputation score badge with tooltip breakdown *@
+
+<MudTooltip>
+    <ChildContent>
+        <MudChip T="string"
+                 Size="Size.Small"
+                 Variant="Variant.Filled"
+                 Color="@ScoreColor"
+                 Icon="@Icons.Material.Filled.Star">
+            @($"{OverallScore:0}")
+        </MudChip>
+    </ChildContent>
+    <TooltipContent>
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.caption"><b>Reputation Breakdown</b></MudText>
+            <MudText Typo="Typo.caption">Referral: @($"{ReferralScore:0}")</MudText>
+            <MudText Typo="Typo.caption">Contribution: @($"{ContributionScore:0}")</MudText>
+            <MudText Typo="Typo.caption">Attestation: @($"{AttestationScore:0}")</MudText>
+        </MudStack>
+    </TooltipContent>
+</MudTooltip>
+
+@code {
+    [Parameter] public decimal OverallScore { get; set; }
+    [Parameter] public decimal ReferralScore { get; set; }
+    [Parameter] public decimal ContributionScore { get; set; }
+    [Parameter] public decimal AttestationScore { get; set; }
+
+    private Color ScoreColor
+    {
+        get
+        {
+            if (OverallScore >= 70) return Color.Success;
+            if (OverallScore >= 40) return Color.Warning;
+            return Color.Error;
+        }
+    }
+}
