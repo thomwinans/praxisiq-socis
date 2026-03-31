@@ -36,6 +36,7 @@ builder.Services.AddScoped<INetworkService, NetworkService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 builder.Services.AddScoped<IFeedService, FeedService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // MudBlazor
 builder.Services.AddMudServices();

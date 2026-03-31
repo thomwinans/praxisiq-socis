@@ -1,0 +1,62 @@
+@inject INotificationService NotificationService
+@implements IDisposable
+
+<MudBadge Content="@_unreadCount"
+          Visible="@(_unreadCount > 0)"
+          Color="Color.Error"
+          Overlap="true">
+    <MudIconButton Icon="@Icons.Material.Outlined.Notifications"
+                   Color="Color.Inherit"
+                   OnClick="OnBellClicked" />
+</MudBadge>
+
+@code {
+    private int _unreadCount;
+    private Timer? _pollTimer;
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await PollUnreadCountAsync();
+            StateHasChanged();
+            _pollTimer = new Timer(async _ =>
+            {
+                await PollUnreadCountAsync();
+                await InvokeAsync(StateHasChanged);
+            }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
+        }
+    }
+
+    private async Task PollUnreadCountAsync()
+    {
+        try
+        {
+            var result = await NotificationService.ListAsync(limit: 1);
+            _unreadCount = result.UnreadCount;
+        }
+        catch
+        {
+            // API unavailable
+        }
+    }
+
+    private async Task OnBellClicked()
+    {
+        await OnClick.InvokeAsync();
+    }
+
+    public async Task RefreshAsync()
+    {
+        await PollUnreadCountAsync();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _pollTimer?.Dispose();
+    }
+}

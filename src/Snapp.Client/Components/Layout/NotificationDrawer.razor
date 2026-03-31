@@ -1,0 +1,169 @@
+@inject INotificationService NotificationService
+@inject NavigationManager Navigation
+
+<MudDrawer Open="@Open"
+           OpenChanged="OnDrawerOpenChanged"
+           Anchor="Anchor.End"
+           Elevation="2"
+           Variant="DrawerVariant.Temporary"
+           Width="380px">
+    <MudDrawerHeader>
+        <MudText Typo="Typo.h6">Notifications</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   OnClick="MarkAllReadAsync"
+                   Disabled="@(_loading || _notifications.All(n => n.IsRead))">
+            Mark All Read
+        </MudButton>
+    </MudDrawerHeader>
+
+    @if (_loading)
+    {
+        <div class="pa-4">
+            <MudProgressCircular Indeterminate="true" Size="Size.Medium" Class="mx-auto d-block" />
+        </div>
+    }
+    else if (_notifications.Count == 0)
+    {
+        <div class="pa-6 d-flex flex-column align-center">
+            <MudIcon Icon="@Icons.Material.Outlined.NotificationsNone"
+                     Size="Size.Large"
+                     Color="Color.Default" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">
+                No notifications yet
+            </MudText>
+        </div>
+    }
+    else
+    {
+        <MudList T="string" Dense="true" Class="pa-0">
+            @foreach (var notif in _notifications)
+            {
+                <MudListItem OnClick="@(() => OnNotificationClickedAsync(notif))"
+                             Class="@(notif.IsRead ? "" : "mud-theme-primary" )"
+                             Style="@(notif.IsRead ? "" : "background-color: var(--mud-palette-primary-lighten); opacity: 1;")">
+                    <div class="d-flex align-center gap-3">
+                        <MudIcon Icon="@GetIconForType(notif.Type)"
+                                 Color="@(notif.IsRead ? Color.Default : Color.Primary)"
+                                 Size="Size.Small" />
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <MudText Typo="@(notif.IsRead ? Typo.body2 : Typo.subtitle2)"
+                                     Style="@(notif.IsRead ? "" : "font-weight:700;")">
+                                @notif.Title
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                     Style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @notif.Body
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                                @FormatRelativeTime(notif.CreatedAt)
+                            </MudText>
+                        </div>
+                        @if (!notif.IsRead)
+                        {
+                            <MudBadge Dot="true" Color="Color.Primary" />
+                        }
+                    </div>
+                </MudListItem>
+            }
+        </MudList>
+    }
+
+    <MudSpacer />
+    <div class="pa-4">
+        <MudLink Href="/notifications/preferences" Typo="Typo.body2">
+            Digest Preferences
+        </MudLink>
+    </div>
+</MudDrawer>
+
+@code {
+    private List<NotificationResponse> _notifications = new();
+    private bool _loading;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnNotificationsRead { get; set; }
+
+    private async Task OnDrawerOpenChanged(bool open)
+    {
+        await OpenChanged.InvokeAsync(open);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Open && _notifications.Count == 0)
+        {
+            await LoadNotificationsAsync();
+        }
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        _loading = true;
+        try
+        {
+            var result = await NotificationService.ListAsync(limit: 25);
+            _notifications = result.Notifications;
+        }
+        catch
+        {
+            // API unavailable
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnNotificationClickedAsync(NotificationResponse notif)
+    {
+        if (!notif.IsRead)
+        {
+            await NotificationService.MarkReadAsync(notif.NotificationId);
+            notif.IsRead = true;
+            await OnNotificationsRead.InvokeAsync();
+        }
+
+        await OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        await NotificationService.MarkAllReadAsync();
+        foreach (var n in _notifications)
+            n.IsRead = true;
+        await OnNotificationsRead.InvokeAsync();
+    }
+
+    private static string GetIconForType(NotificationType type) => type switch
+    {
+        NotificationType.ReferralReceived => Icons.Material.Filled.Share,
+        NotificationType.ReferralOutcome => Icons.Material.Filled.ThumbUp,
+        NotificationType.MentionInDiscussion => Icons.Material.Filled.AlternateEmail,
+        NotificationType.ApplicationReceived => Icons.Material.Filled.PersonAdd,
+        NotificationType.ApplicationDecision => Icons.Material.Filled.HowToReg,
+        NotificationType.MilestoneAchieved => Icons.Material.Filled.EmojiEvents,
+        NotificationType.ValuationChanged => Icons.Material.Filled.TrendingUp,
+        NotificationType.NewNetworkMember => Icons.Material.Filled.GroupAdd,
+        NotificationType.DigestSummary => Icons.Material.Filled.Summarize,
+        _ => Icons.Material.Filled.Notifications,
+    };
+
+    private static string FormatRelativeTime(DateTime createdAt)
+    {
+        var diff = DateTime.UtcNow - createdAt;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return createdAt.ToString("MMM d");
+    }
+}

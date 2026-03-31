@@ -1,0 +1,176 @@
+@page "/notifications/preferences"
+@attribute [Authorize]
+@inject INotificationService NotificationService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Notification Preferences</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" Class="mx-auto d-block" />
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        <MudButton Variant="Variant.Outlined" OnClick="LoadPreferencesAsync">Retry</MudButton>
+    }
+    else
+    {
+        <MudCard Class="mb-4">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">Daily Digest</MudText>
+
+                <MudTimePicker Label="Digest Time"
+                               @bind-Time="_digestTime"
+                               Variant="Variant.Outlined"
+                               Class="mb-4" />
+
+                <MudAutocomplete T="string"
+                                 Label="Timezone"
+                                 @bind-Value="_timezone"
+                                 Variant="Variant.Outlined"
+                                 SearchFunc="SearchTimezones"
+                                 MaxItems="50"
+                                 Dense="true" />
+            </MudCardContent>
+        </MudCard>
+
+        <MudCard Class="mb-4">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">Immediate Notifications</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    By default, all notifications are delivered in your daily digest.
+                    Toggle these on to also receive them immediately.
+                </MudText>
+
+                <MudSwitch T="bool"
+                           Label="Referral Received"
+                           Color="Color.Primary"
+                           @bind-Value="_referralReceived" />
+                <MudSwitch T="bool"
+                           Label="Mentioned in Discussion"
+                           Color="Color.Primary"
+                           @bind-Value="_mentionInDiscussion" />
+                <MudSwitch T="bool"
+                           Label="Application Decision"
+                           Color="Color.Primary"
+                           @bind-Value="_applicationDecision" />
+                <MudSwitch T="bool"
+                           Label="Valuation Changed"
+                           Color="Color.Primary"
+                           @bind-Value="_valuationChanged" />
+            </MudCardContent>
+        </MudCard>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SaveAsync"
+                   Disabled="_saving"
+                   FullWidth="true">
+            @if (_saving)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+            }
+            Save Preferences
+        </MudButton>
+    }
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+
+    private TimeSpan? _digestTime = new TimeSpan(7, 0, 0);
+    private string _timezone = "America/New_York";
+
+    private bool _referralReceived;
+    private bool _mentionInDiscussion;
+    private bool _applicationDecision;
+    private bool _valuationChanged;
+
+    private readonly List<string> _timezones = TimeZoneInfo.GetSystemTimeZones()
+        .Select(tz => tz.Id)
+        .ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadPreferencesAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadPreferencesAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var prefs = await NotificationService.GetPreferencesAsync();
+            if (prefs is not null)
+            {
+                if (TimeSpan.TryParse(prefs.DigestTime, out var t))
+                    _digestTime = t;
+                _timezone = prefs.Timezone;
+
+                _referralReceived = prefs.ImmediateTypes.Contains(NotificationType.ReferralReceived);
+                _mentionInDiscussion = prefs.ImmediateTypes.Contains(NotificationType.MentionInDiscussion);
+                _applicationDecision = prefs.ImmediateTypes.Contains(NotificationType.ApplicationDecision);
+                _valuationChanged = prefs.ImmediateTypes.Contains(NotificationType.ValuationChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load preferences: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        try
+        {
+            var immediateTypes = new List<NotificationType>();
+            if (_referralReceived) immediateTypes.Add(NotificationType.ReferralReceived);
+            if (_mentionInDiscussion) immediateTypes.Add(NotificationType.MentionInDiscussion);
+            if (_applicationDecision) immediateTypes.Add(NotificationType.ApplicationDecision);
+            if (_valuationChanged) immediateTypes.Add(NotificationType.ValuationChanged);
+
+            var request = new UpdatePreferencesRequest
+            {
+                DigestTime = _digestTime?.ToString(@"hh\:mm") ?? "07:00",
+                Timezone = _timezone,
+                ImmediateTypes = immediateTypes,
+            };
+
+            var success = await NotificationService.SavePreferencesAsync(request);
+            if (success)
+                Snackbar.Add("Preferences saved", Severity.Success);
+            else
+                Snackbar.Add("Failed to save preferences", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Failed to save preferences", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private Task<IEnumerable<string>> SearchTimezones(string? value, CancellationToken ct)
+    {
+        IEnumerable<string> result = string.IsNullOrWhiteSpace(value)
+            ? _timezones
+            : _timezones.Where(tz => tz.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(result);
+    }
+}
