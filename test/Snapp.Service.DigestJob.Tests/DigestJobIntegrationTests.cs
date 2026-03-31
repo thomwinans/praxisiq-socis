@@ -35,8 +35,8 @@ public class DigestJobIntegrationTests : IAsyncLifetime
         await _dynamo.EnsureUsersTableAsync();
         await EnsureNotificationsTableAsync();
 
-        try { await _papercut.DeleteAllMessagesAsync(); }
-        catch { /* ignore */ }
+        // Do NOT clear Papercut inbox — other test assemblies (Auth, User, Network)
+        // run in parallel and rely on emails being present for magic link extraction.
     }
 
     public Task DisposeAsync()

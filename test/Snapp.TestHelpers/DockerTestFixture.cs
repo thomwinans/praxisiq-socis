@@ -34,15 +34,11 @@ public sealed class DockerTestFixture : IAsyncLifetime
 
         PapercutClient = new PapercutClient(PapercutUrl);
 
-        // Clear inbox for test isolation
-        try
-        {
-            await PapercutClient.DeleteAllMessagesAsync();
-        }
-        catch
-        {
-            // Papercut may not have any messages; ignore errors on delete
-        }
+        // Do NOT clear the Papercut inbox here. Multiple test assemblies
+        // share the same Docker stack and initialize fixtures in parallel.
+        // Clearing the inbox from one assembly destroys emails that another
+        // assembly's tests are waiting to extract. The recipient-filtered
+        // fetch in PapercutClient handles accumulated messages efficiently.
     }
 
     public Task DisposeAsync()

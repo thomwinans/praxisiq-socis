@@ -51,17 +51,32 @@ public sealed class PapercutClient : IDisposable
 
     public async Task<List<EmailMessage>> GetMessagesForRecipientAsync(string email)
     {
-        var all = await GetMessagesAsync();
-        return all
-            .Where(m => m.To.Contains(email, StringComparison.OrdinalIgnoreCase))
+        // Only check the most recent messages to avoid N+1 query explosion
+        // when the inbox is large from parallel test assemblies.
+        var response = await _http.GetAsync("/api/messages");
+        response.EnsureSuccessStatusCode();
+
+        var listing = await response.Content.ReadFromJsonAsync<PapercutMessageListing>(JsonOptions);
+        var summaries = (listing?.Messages ?? [])
+            .OrderByDescending(s => s.CreatedAt)
             .ToList();
+
+        var result = new List<EmailMessage>();
+        foreach (var summary in summaries)
+        {
+            var detail = await GetMessageDetailAsync(summary.Id);
+            if (detail is not null && detail.To.Contains(email, StringComparison.OrdinalIgnoreCase))
+                result.Add(detail);
+        }
+
+        return result;
     }
 
     /// <summary>
     /// Polls Papercut until at least one message arrives for the given recipient.
     /// Returns the matching messages, or an empty list if none arrive within the timeout.
     /// </summary>
-    public async Task<List<EmailMessage>> WaitForMessagesAsync(string email, int maxRetries = 5, int delayMs = 500)
+    public async Task<List<EmailMessage>> WaitForMessagesAsync(string email, int maxRetries = 10, int delayMs = 1000)
     {
         for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
@@ -82,20 +97,29 @@ public sealed class PapercutClient : IDisposable
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<string?> ExtractMagicLinkCodeAsync(string email, int maxRetries = 5, int delayMs = 500)
+    public async Task<string?> ExtractMagicLinkCodeAsync(string email, int maxRetries = 10, int delayMs = 1000)
     {
         for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
-            var messages = await GetMessagesForRecipientAsync(email);
-            var latest = messages
-                .OrderByDescending(m => m.ReceivedAt)
-                .FirstOrDefault();
-
-            if (latest?.Body is not null)
+            // Fetch summaries and check details one at a time (newest first),
+            // breaking early on first recipient match to avoid N+1 explosion.
+            var response = await _http.GetAsync("/api/messages");
+            if (response.IsSuccessStatusCode)
             {
-                var match = Regex.Match(latest.Body, @"code=([A-Za-z0-9_-]+)");
-                if (match.Success)
-                    return match.Groups[1].Value;
+                var listing = await response.Content.ReadFromJsonAsync<PapercutMessageListing>(JsonOptions);
+                var summaries = (listing?.Messages ?? [])
+                    .OrderByDescending(s => s.CreatedAt);
+
+                foreach (var summary in summaries)
+                {
+                    var detail = await GetMessageDetailAsync(summary.Id);
+                    if (detail is null) continue;
+                    if (!detail.To.Contains(email, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    var match = Regex.Match(detail.Body, @"code=([A-Za-z0-9_-]+)");
+                    if (match.Success)
+                        return match.Groups[1].Value;
+                }
             }
 
             if (attempt < maxRetries)
