@@ -210,6 +210,31 @@ services:
       retries: 5
       start_period: 10s
 
+  snapp-transaction:
+    build:
+      context: ../../../
+      dockerfile: src/Snapp.Service.Transaction/Dockerfile
+    container_name: snapp-transaction
+    ports:
+      - "8086:8080"
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AWS_ACCESS_KEY_ID: fakeAccessKey
+      AWS_SECRET_ACCESS_KEY: fakeSecretKey
+      AWS_DEFAULT_REGION: us-east-1
+      DynamoDB__ServiceURL: http://dynamodb-local:8000
+    networks:
+      - snapp-net
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   snapp-notification:
     build:
       context: ../../../

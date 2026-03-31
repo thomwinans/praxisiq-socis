@@ -8,4 +8,10 @@
     <ProjectReference Include="..\Snapp.Shared\Snapp.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.405.5" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+    <PackageReference Include="Ulid" Version="1.3.4" />
+  </ItemGroup>
+
 </Project>
