@@ -9,6 +9,15 @@ public class VerticalConfig
     public decimal BaseConfidence { get; set; } = 40m;
     public decimal MaxConfidence { get; set; } = 95m;
     public List<CareerStageRule> CareerStageRules { get; set; } = new();
+    public List<CompensationRoleConfig> CompensationRoles { get; set; } = new();
+}
+
+public class CompensationRoleConfig
+{
+    public string Role { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public List<string> CompensationTypes { get; set; } = new();
+    public List<string> AmountBands { get; set; } = new();
 }
 
 public class CareerStageRule

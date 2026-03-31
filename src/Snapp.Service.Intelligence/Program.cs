@@ -82,6 +82,7 @@ app.MapCareerStageEndpoints();
 app.MapValuationEndpoints();
 app.MapMarketEndpoints();
 app.MapQuestionEndpoints();
+app.MapCompensationEndpoints();
 
 #if LAMBDA
 await app.RunLambdaAsync();

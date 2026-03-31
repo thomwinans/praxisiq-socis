@@ -20,6 +20,7 @@ public class FakeIntelligenceService : IIntelligenceService
     public PendingQuestionsResponse? PendingQuestionsResult { get; set; }
     public AnswerQuestionResponse? AnswerQuestionResult { get; set; }
     public ProgressionResponse? ProgressionResult { get; set; }
+    public CompensationBenchmarkResponse? CompensationBenchmarkResult { get; set; }
     public bool ThrowOnDashboard { get; set; }
     public bool ThrowOnContribute { get; set; }
     public bool ThrowOnBenchmarks { get; set; }
@@ -88,4 +89,7 @@ public class FakeIntelligenceService : IIntelligenceService
 
     public Task<ProgressionResponse?> GetProgressionAsync()
         => Task.FromResult(ProgressionResult);
+
+    public Task<CompensationBenchmarkResponse?> GetCompensationBenchmarksAsync(string? market, string? size)
+        => Task.FromResult(CompensationBenchmarkResult);
 }

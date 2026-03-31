@@ -49,86 +49,141 @@
     </MudButton>
 </MudPaper>
 
-@if (_loading)
-{
-    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-}
-else if (_error)
-{
-    <MudAlert Severity="Severity.Error" Class="mb-4">
-        Failed to load benchmark data.
-        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadBenchmarksAsync">Retry</MudButton>
-    </MudAlert>
-}
-else if (_response is not null)
-{
-    @* Cohort size *@
-    @if (_response.CohortSize < 5)
-    {
-        <MudAlert Severity="Severity.Info" Class="mb-4">
-            Not enough data in this cohort yet. Only @_response.CohortSize practices found.
-        </MudAlert>
-    }
-    else
-    {
-        <MudText Typo="Typo.subtitle1" Class="mb-4">
-            Comparing against @_response.CohortSize peers
-        </MudText>
-    }
+<MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+    <MudTabPanel Text="Practice Benchmarks" Icon="@Icons.Material.Filled.BarChart">
+        @if (_loading)
+        {
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_error)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                Failed to load benchmark data.
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadBenchmarksAsync">Retry</MudButton>
+            </MudAlert>
+        }
+        else if (_response is not null)
+        {
+            @if (_response.CohortSize < 5)
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Not enough data in this cohort yet. Only @_response.CohortSize practices found.
+                </MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.subtitle1" Class="mb-4">
+                    Comparing against @_response.CohortSize peers
+                </MudText>
+            }
 
-    @* Benchmark Table *@
-    <MudTable Items="@_response.Metrics" Dense="true" Hover="true" Striped="true"
-              RowClassFunc="@GetRowClass" Elevation="1">
-        <HeaderContent>
-            <MudTh>Metric</MudTh>
-            <MudTh>Your Value</MudTh>
-            <MudTh>P25</MudTh>
-            <MudTh>P50 (Median)</MudTh>
-            <MudTh>P75</MudTh>
-            <MudTh>Your Percentile</MudTh>
-            <MudTh Style="min-width: 200px;">Distribution</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Metric">@context.Name</MudTd>
-            <MudTd DataLabel="Your Value">
-                @if (context.UserValue.HasValue)
-                {
-                    @FormatValue(context.UserValue.Value)
-                }
-                else
-                {
-                    <MudText Typo="Typo.body2" Color="Color.Default">--</MudText>
-                }
-            </MudTd>
-            <MudTd DataLabel="P25">@FormatValue(context.P25)</MudTd>
-            <MudTd DataLabel="P50">@FormatValue(context.P50)</MudTd>
-            <MudTd DataLabel="P75">@FormatValue(context.P75)</MudTd>
-            <MudTd DataLabel="Your Percentile">
-                @if (context.UserPercentile.HasValue)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="@GetPercentileColor(context.UserPercentile.Value)">
-                        @($"{context.UserPercentile.Value:F0}th")
-                    </MudChip>
-                }
-                else
-                {
-                    <MudText Typo="Typo.body2" Color="Color.Default">--</MudText>
-                }
-            </MudTd>
-            <MudTd DataLabel="Distribution">
-                <PercentileBar P25="@context.P25" P50="@context.P50" P75="@context.P75"
-                               UserValue="@context.UserValue" UserPercentile="@context.UserPercentile" />
-            </MudTd>
-        </RowTemplate>
-    </MudTable>
-}
-else if (!_hasSearched)
-{
-    <MudStack AlignItems="AlignItems.Center" Class="pa-8">
-        <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Large" Color="Color.Default" />
-        <MudText Color="Color.Default">Select cohort filters and click Compare to see benchmarks.</MudText>
-    </MudStack>
-}
+            <MudTable Items="@_response.Metrics" Dense="true" Hover="true" Striped="true"
+                      RowClassFunc="@GetRowClass" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Metric</MudTh>
+                    <MudTh>Your Value</MudTh>
+                    <MudTh>P25</MudTh>
+                    <MudTh>P50 (Median)</MudTh>
+                    <MudTh>P75</MudTh>
+                    <MudTh>Your Percentile</MudTh>
+                    <MudTh Style="min-width: 200px;">Distribution</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Metric">@context.Name</MudTd>
+                    <MudTd DataLabel="Your Value">
+                        @if (context.UserValue.HasValue)
+                        {
+                            @FormatValue(context.UserValue.Value)
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Default">--</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="P25">@FormatValue(context.P25)</MudTd>
+                    <MudTd DataLabel="P50">@FormatValue(context.P50)</MudTd>
+                    <MudTd DataLabel="P75">@FormatValue(context.P75)</MudTd>
+                    <MudTd DataLabel="Your Percentile">
+                        @if (context.UserPercentile.HasValue)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="@GetPercentileColor(context.UserPercentile.Value)">
+                                @($"{context.UserPercentile.Value:F0}th")
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Default">--</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Distribution">
+                        <PercentileBar P25="@context.P25" P50="@context.P50" P75="@context.P75"
+                                       UserValue="@context.UserValue" UserPercentile="@context.UserPercentile" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        else if (!_hasSearched)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Large" Color="Color.Default" />
+                <MudText Color="Color.Default">Select cohort filters and click Compare to see benchmarks.</MudText>
+            </MudStack>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Compensation" Icon="@Icons.Material.Filled.Payments" OnClick="OnCompensationTabActivated">
+        <MudText Typo="Typo.body2" Color="Color.Default" Class="mb-4">
+            Anonymous peer compensation data aggregated by role. Requires at least 5 contributors per role to protect anonymity.
+        </MudText>
+
+        @if (_compLoading)
+        {
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_compResponse is not null)
+        {
+            <MudTable Items="@_compResponse.Roles" Dense="true" Hover="true" Striped="true" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Role</MudTh>
+                    <MudTh>Contributors</MudTh>
+                    <MudTh>P25</MudTh>
+                    <MudTh>P50 (Median)</MudTh>
+                    <MudTh>P75</MudTh>
+                    <MudTh>Insight</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Role">@context.DisplayName</MudTd>
+                    <MudTd DataLabel="Contributors">@context.ContributorCount</MudTd>
+                    @if (context.MeetsAnonymityThreshold)
+                    {
+                        <MudTd DataLabel="P25">$@FormatValue(context.P25)@context.CompensationUnit</MudTd>
+                        <MudTd DataLabel="P50">$@FormatValue(context.P50)@context.CompensationUnit</MudTd>
+                        <MudTd DataLabel="P75">$@FormatValue(context.P75)@context.CompensationUnit</MudTd>
+                        <MudTd DataLabel="Insight">
+                            <MudText Typo="Typo.body2">@context.Summary</MudText>
+                        </MudTd>
+                    }
+                    else
+                    {
+                        <MudTd DataLabel="P25" colspan="4">
+                            <MudAlert Severity="Severity.Info" Dense="true" NoIcon="true">
+                                Need @(5 - context.ContributorCount) more contributors to unlock benchmarks.
+                            </MudAlert>
+                        </MudTd>
+                    }
+                </RowTemplate>
+            </MudTable>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Large" Color="Color.Default" />
+                <MudText Color="Color.Default">Loading compensation benchmarks...</MudText>
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+            </MudStack>
+        }
+    </MudTabPanel>
+</MudTabs>
 
 @code {
     private string _specialty = "General Dentistry";
@@ -138,6 +193,10 @@ else if (!_hasSearched)
     private bool _error;
     private bool _hasSearched;
     private BenchmarkResponse? _response;
+
+    // Compensation state
+    private bool _compLoading;
+    private CompensationBenchmarkResponse? _compResponse;
 
     private bool CanSearch => !string.IsNullOrEmpty(_specialty)
                            && !string.IsNullOrEmpty(_geography)
@@ -184,4 +243,30 @@ else if (!_hasSearched)
 
     private static string FormatValue(decimal value)
         => value >= 10_000 ? $"{value:N0}" : $"{value:F1}";
+
+    private async Task OnCompensationTabActivated()
+    {
+        if (_compResponse is not null || _compLoading) return;
+        await LoadCompensationBenchmarksAsync();
+    }
+
+    private async Task LoadCompensationBenchmarksAsync()
+    {
+        _compLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _compResponse = await IntelligenceService.GetCompensationBenchmarksAsync(_geography, _sizeBand);
+        }
+        catch
+        {
+            _compResponse = null;
+        }
+        finally
+        {
+            _compLoading = false;
+            StateHasChanged();
+        }
+    }
 }

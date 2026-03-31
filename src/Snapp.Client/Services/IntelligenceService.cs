@@ -103,6 +103,19 @@ public class IntelligenceService : IIntelligenceService
         return await response.Content.ReadFromJsonAsync<ProgressionResponse>();
     }
 
+    public async Task<CompensationBenchmarkResponse?> GetCompensationBenchmarksAsync(string? market, string? size)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(market)) query.Add($"market={Uri.EscapeDataString(market)}");
+        if (!string.IsNullOrEmpty(size)) query.Add($"size={Uri.EscapeDataString(size)}");
+        var url = query.Count > 0
+            ? $"intel/compensation/benchmarks?{string.Join("&", query)}"
+            : "intel/compensation/benchmarks";
+        var response = await _http.GetAsync(url);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<CompensationBenchmarkResponse>();
+    }
+
     public async Task<VerticalConfigResponse?> GetVerticalConfigAsync()
     {
         // The vertical config is served from the intelligence service

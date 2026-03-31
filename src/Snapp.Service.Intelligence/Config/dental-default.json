@@ -107,7 +107,46 @@
     { "category": "operations", "dimension": "Operations", "confidenceWeight": 0.12, "displayName": "Operational Data" },
     { "category": "client_base", "dimension": "ClientBase", "confidenceWeight": 0.10, "displayName": "Client Base Data" },
     { "category": "revenue_mix", "dimension": "RevenueDiversification", "confidenceWeight": 0.08, "displayName": "Revenue Mix Data" },
-    { "category": "market", "dimension": "MarketPosition", "confidenceWeight": 0.08, "displayName": "Market Position Data" }
+    { "category": "market", "dimension": "MarketPosition", "confidenceWeight": 0.08, "displayName": "Market Position Data" },
+    { "category": "staff_compensation", "dimension": "Operations", "confidenceWeight": 0.05, "displayName": "Staff Compensation Data" }
+  ],
+  "compensationRoles": [
+    {
+      "role": "dental_hygienist",
+      "displayName": "Dental Hygienist",
+      "compensationTypes": ["hourly", "salary"],
+      "amountBands": ["$25-30/hr", "$30-35/hr", "$35-40/hr", "$40-45/hr", "$45-50/hr", "$50-55/hr", "$55-60/hr", "$60+/hr"]
+    },
+    {
+      "role": "dental_assistant",
+      "displayName": "Dental Assistant",
+      "compensationTypes": ["hourly", "salary"],
+      "amountBands": ["$15-18/hr", "$18-22/hr", "$22-26/hr", "$26-30/hr", "$30+/hr"]
+    },
+    {
+      "role": "front_desk",
+      "displayName": "Front Desk / Scheduling",
+      "compensationTypes": ["hourly", "salary"],
+      "amountBands": ["$14-17/hr", "$17-20/hr", "$20-24/hr", "$24-28/hr", "$28+/hr"]
+    },
+    {
+      "role": "office_manager",
+      "displayName": "Office Manager",
+      "compensationTypes": ["salary", "hourly"],
+      "amountBands": ["$40k-50k/yr", "$50k-60k/yr", "$60k-70k/yr", "$70k-80k/yr", "$80k+/yr"]
+    },
+    {
+      "role": "associate_dentist",
+      "displayName": "Associate Dentist",
+      "compensationTypes": ["salary", "dailyRate"],
+      "amountBands": ["$120k-140k/yr", "$140k-160k/yr", "$160k-180k/yr", "$180k-200k/yr", "$200k+/yr"]
+    },
+    {
+      "role": "specialist",
+      "displayName": "Specialist (Endo/Perio/Ortho)",
+      "compensationTypes": ["salary", "dailyRate"],
+      "amountBands": ["$150k-180k/yr", "$180k-220k/yr", "$220k-260k/yr", "$260k-300k/yr", "$300k+/yr"]
+    }
   ],
   "baseConfidence": 40.0,
   "maxConfidence": 95.0,

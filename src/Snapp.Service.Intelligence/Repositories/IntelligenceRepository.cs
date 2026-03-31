@@ -1053,6 +1053,67 @@ public class IntelligenceRepository : IIntelligenceRepository
         ConfidenceLevel = item.TryGetValue("ConfidenceLevel", out var cl) ? cl.S : "low",
         ComputedAt = item.TryGetValue("ComputedAt", out var ca) ? DateTime.Parse(ca.S) : DateTime.MinValue,
     };
+
+    // ── Compensation ───────────────────────────────────────────
+
+    public async Task SaveCompensationContributionAsync(string userId, Endpoints.CompensationContribution contribution)
+    {
+        var now = DateTime.UtcNow.ToString("O");
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new($"COMP#{userId}"),
+            ["SK"] = new($"ROLE#{contribution.Role}"),
+            ["UserId"] = new(userId),
+            ["Role"] = new(contribution.Role),
+            ["CompensationType"] = new(contribution.CompensationType),
+            ["AmountBand"] = new(contribution.AmountBand),
+            ["BenefitsIncluded"] = new() { BOOL = contribution.BenefitsIncluded },
+            ["DentalBenefitsIncluded"] = new() { BOOL = contribution.DentalBenefitsIncluded },
+            ["RetirementPlanIncluded"] = new() { BOOL = contribution.RetirementPlanIncluded },
+            ["PaidTimeOff"] = new() { BOOL = contribution.PaidTimeOff },
+            ["SubmittedAt"] = new(now),
+            ["GSI1PK"] = new($"COMPROLE#{contribution.Role}"),
+            ["GSI1SK"] = new($"USER#{userId}"),
+        };
+
+        await _db.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableNames.Intelligence,
+            Item = item,
+        });
+    }
+
+    public async Task<List<Endpoints.CompensationContribution>> GetCompensationContributionsForRoleAsync(
+        string role, string? market, string? sizeBand)
+    {
+        // Scan for all contributions for this role
+        // In production, this would use GSI1 (GSI1PK = COMPROLE#{role})
+        var response = await _db.ScanAsync(new ScanRequest
+        {
+            TableName = TableNames.Intelligence,
+            FilterExpression = "begins_with(PK, :compPrefix) AND #r = :role",
+            ExpressionAttributeNames = new Dictionary<string, string>
+            {
+                ["#r"] = "Role",
+            },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":compPrefix"] = new("COMP#"),
+                [":role"] = new(role),
+            },
+        });
+
+        return response.Items.Select(item => new Endpoints.CompensationContribution
+        {
+            Role = item["Role"].S,
+            CompensationType = item["CompensationType"].S,
+            AmountBand = item["AmountBand"].S,
+            BenefitsIncluded = item.TryGetValue("BenefitsIncluded", out var bi) && bi.BOOL,
+            DentalBenefitsIncluded = item.TryGetValue("DentalBenefitsIncluded", out var di) && di.BOOL,
+            RetirementPlanIncluded = item.TryGetValue("RetirementPlanIncluded", out var ri) && ri.BOOL,
+            PaidTimeOff = item.TryGetValue("PaidTimeOff", out var pto) && pto.BOOL,
+        }).ToList();
+    }
 }
 
 /// <summary>

@@ -19,6 +19,26 @@ public interface IIntelligenceService
     Task<PendingQuestionsResponse?> GetPendingQuestionsAsync();
     Task<AnswerQuestionResponse?> AnswerQuestionAsync(string questionId, string answer);
     Task<ProgressionResponse?> GetProgressionAsync();
+    Task<CompensationBenchmarkResponse?> GetCompensationBenchmarksAsync(string? market, string? size);
+}
+
+public class CompensationBenchmarkResponse
+{
+    public List<CompensationRoleBenchmark> Roles { get; set; } = new();
+    public int AnonymityThreshold { get; set; } = 5;
+}
+
+public class CompensationRoleBenchmark
+{
+    public string Role { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public int ContributorCount { get; set; }
+    public bool MeetsAnonymityThreshold { get; set; }
+    public decimal P25 { get; set; }
+    public decimal P50 { get; set; }
+    public decimal P75 { get; set; }
+    public string CompensationUnit { get; set; } = "/hr";
+    public string? Summary { get; set; }
 }
 
 public class ScoreResponse
